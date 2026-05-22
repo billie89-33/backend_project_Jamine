@@ -1,4 +1,5 @@
 import User from '../../models/user.model.js';
+import generateToken from '../../utils/generateToken.js';
 
 // @desc    Register a user to MongoDB (Sign Up)
 // @route   POST /api/v1/users/register
@@ -58,9 +59,12 @@ export const registerUser = async (req, res, next) => {
         });
 
         if (user) {
+            // สร้าง Token และส่งกลับไปใน Cookie
+            generateToken(res, user._id);
+
             res.status(201).json({
                 success: true,
-                message: 'User registered successfully',
+                message: 'User registered and logged in successfully',
                 data: {
                     id: user._id,
                     username: user.username,
@@ -72,6 +76,61 @@ export const registerUser = async (req, res, next) => {
     } catch (error) {
         next(error);
     }
+};
+
+// @desc    Login user
+// @route   POST /api/v1/users/login
+// @access  Public
+export const loginUser = async (req, res, next) => {
+    try {
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide email and password'
+            });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+
+        if (!user || !(await user.matchPassword(password))) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
+            });
+        }
+
+        generateToken(res, user._id);
+
+        res.status(200).json({
+            success: true,
+            message: 'Logged in successfully',
+            data: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                role: user.role
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Logout user / Clear Cookie
+// @route   POST /api/v1/users/logout
+// @access  Public
+export const logoutUser = (req, res) => {
+    res.cookie('accessToken', '', {
+        httpOnly: true,
+        expires: new Date(0)
+    });
+
+    res.status(200).json({
+        success: true,
+        message: 'Logged out successfully'
+    });
 };
 
 // @desc    Get all users (v1 - MongoDB)
@@ -95,6 +154,13 @@ export const getUsers = async (req, res, next) => {
 // @access  Public
 export const getUser = async (req, res, next) => {
     try {
+        if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid User ID format'
+            });
+        }
+
         const user = await User.findById(req.params.id);
 
         if (!user) {
@@ -118,6 +184,13 @@ export const getUser = async (req, res, next) => {
 // @access  Public
 export const updateUser = async (req, res, next) => {
     try {
+        if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid User ID format'
+            });
+        }
+
         let user = await User.findById(req.params.id);
 
         if (!user) {
@@ -168,6 +241,13 @@ export const updateUser = async (req, res, next) => {
 // @access  Public
 export const deleteUser = async (req, res, next) => {
     try {
+        if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid User ID format'
+            });
+        }
+
         const user = await User.findByIdAndDelete(req.params.id);
 
         if (!user) {
