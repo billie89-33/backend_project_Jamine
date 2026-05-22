@@ -6,7 +6,7 @@ import notesRoutes from './notes.routes.js';
 const router = express.Router();
 
 router.use('/users', usersRoutes);
-router.use('/products', productsRoutes);
+router.use('/products', productsRoutes); // เชื่อมต่อ products route
 router.use('/notes', notesRoutes);
 
 export default router;

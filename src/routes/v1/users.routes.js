@@ -4,6 +4,7 @@ import {
     registerUser, 
     loginUser,
     logoutUser,
+    getMe,
     getUser, 
     updateUser, 
     deleteUser 
@@ -18,11 +19,12 @@ router.post('/login', loginUser);
 router.post('/logout', logoutUser);
 
 // Protected routes (ต้องล็อกอิน)
+router.get('/me', protect, getMe);
 router.get('/:id', protect, getUser);
 router.put('/:id', protect, updateUser);
 
 // Admin only routes (ต้องล็อกอินและเป็นแอดมิน)
 router.get('/', protect, admin, getUsers);
-router.delete('/:id', protect, admin, deleteUser);
+// router.delete('/:id', protect, admin, deleteUser); // ปิดไว้ชั่วคราวตามความต้องการของผู้ใช้
 
 export default router;

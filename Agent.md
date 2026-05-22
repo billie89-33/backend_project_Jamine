@@ -51,8 +51,6 @@ npm test
 - `SUPABASE_URL`
 - `SUPABASE_SECRET_KEY`
 - `GEMINI_API_KEY`
-- `GEMINI_EMBEDDING_MODEL`
-- `GEMINI_GENERATION_MODEL`
 
 ## โครงสร้างไฟล์หลัก
 
@@ -65,18 +63,30 @@ src/
   controllers/              📂 แยก Logic การทำงานของ API ออกมาจากหน้า Model
     v1/                     📂 จัดกลุ่มแยกเวอร์ชันให้ตรงตามระบบ Routes
       users.controller.js
+      products.controller.js
+  fakeData/
+    fakeUser.js
+    fakeProduct.js
   middlewares/
+    auth.middleware.js
     error.middleware.js
   models/                   📂 เก็บเฉพาะ Schema
     user.model.js
+    product.model.js
   routes/
     index.js
     v1/                     📂 โฟลเดอร์เก็บ route แยกตามโมดูล
       index.js
       users.routes.js
+      products.routes.js
+      notes.routes.js
   test.http/
     v1/                     📂 ไฟล์ทดสอบ API (.rest)
       users.v1.rest
+      products.v1.rest
+  utils/
+    generateToken.js
+    generateSecretKey.js
 ```
 
 ## Server Flow
@@ -88,6 +98,8 @@ src/
 - เชื่อมต่อ MongoDB และเรียกใช้ Centralized Error Handler
 - mount route หลักที่ `/api`
 
+---
+
 ## กฎการพัฒนาและข้อควรระวัง (Development Rules)
 
 เพื่อให้โปรเจกต์มีมาตรฐานเดียวกันและบำรุงรักษาง่าย ควรปฏิบัติตามกฎดังนี้:
@@ -95,32 +107,34 @@ src/
 - **Naming Convention**:
     - ห้ามใช้ชื่อโฟลเดอร์ผิดสะกด (เช่น ห้ามใช้ `modeles` ให้ใช้ `models` เท่านั้น)
     - ใช้ camelCase สำหรับชื่อตัวแปรและฟังก์ชัน
-    - ใช้ PascalCase สำหรับชื่อ Model/Class (เช่น `User`, `Product`)
+    - ใช้ PascalCase สำหรับชื่อ Model/Class
 - **Separation of Concerns**:
     - **ห้าม** เขียน Business Logic ไว้ในไฟล์ Route ให้แยกไปไว้ใน Controller เสมอ
-- **Error Handling**:
+- **Error Handling & Database**:
     - **ต้อง** ใช้ Centralized Error Handler โดยการเรียก `next(error)` ใน Controller
     - **ห้าม** เขียน `res.status(500).json(...)` ซ้ำๆ ในแต่ละ Controller
-- **Database & Mongoose**:
+    - **ต้อง** ตรวจสอบรูปแบบ ID ของ MongoDB (Regex `/^[0-9a-fA-F]{24}$/`) ก่อนค้นหาเพื่อป้องกัน `CastError`
     - **ห้าม** ใช้พารามิเตอร์ `next` ใน Middleware (Hook) ของ Mongoose ที่เป็นฟังก์ชัน `async` ให้ใช้ `return` หรือปล่อยให้ฟังก์ชันจบเอง
+- **Partial Updates (Dot Notation)**:
+    - **ต้อง** ใช้เทคนิค Dot Notation เมื่อต้องการอัปเดตฟิลด์ย่อยภายใน Object หรือ Map (เช่น `specifications`) เพื่อป้องกันการบันทึกทับข้อมูลเดิมทั้งหมด
+    - **ห้าม** ส่ง Object เข้าไปใน `findByIdAndUpdate` โดยตรงถ้าต้องการอัปเดตเพียงบางฟิลด์ย่อย
 - **Code Quality**:
     - **ห้าม** ปล่อย Unused Imports ทิ้งไว้ในไฟล์ ให้ลบออกเสมอ
     - **ห้าม** มี Route ที่ไม่ได้ใช้งานจริงหลงเหลืออยู่ (เช่น Basic Route `/` ใน `server.js`)
 - **Testing**:
-    - **ต้อง** เขียนไฟล์ทดสอบ `.rest` หรือ `.http` ทุกครั้งที่เพิ่ม Endpoint ใหม่
-    - **ต้อง** ตรวจสอบว่า `npm test` สามารถทำงานผ่านได้ทั้งหมดก่อนส่งงาน
+    - **ต้อง** เขียนไฟล์ทดสอบ `.rest` ทุกครั้งที่เพิ่ม Endpoint ใหม่
+    - **ต้อง** จัดลำดับ Request ให้ `Logout` อยู่ล่างสุดเสมอ เพื่อรองรับ Auto Test (`npm test`)
 - **Data Validation & Security**:
-    - **กฎของ User**: Email ต้องลงท้ายด้วย `.com`, Password ต้องยาว 6 ตัวขึ้นไป, และต้องตรวจสอบความซ้ำซ้อนของ Username/Email ก่อนบันทึก
+    - **กฎของ User**: Email ต้องลงท้ายด้วย `.com`, Password ต้องยาว 6 ตัวขึ้นไป, และตรวจสอบความซ้ำซ้อนก่อนบันทึก
     - **ห้าม** Commit ไฟล์ `.env` ขึ้น GitHub
     - **ห้าม** ส่ง Password กลับไปใน API Response (`select: false`)
+    - **ต้อง** เก็บ Token ไว้ใน **HttpOnly Cookie** เสมอเพื่อป้องกัน XSS
 - **Environment & Scripts**:
     - **ต้อง** ใช้ `--env-file=.env` ในทุก Script ที่จำเป็นต้องเข้าถึง Environment Variables
-    - **ห้าม** Hard-code ค่าคอนฟิกไว้ในโค้ด
 
 ## ข้อสังเกตและจุดที่ควรปรับปรุง
 
-- โฟลเดอร์ชื่อ `modeles` ถูกแก้ไขเป็น `models` เรียบร้อยแล้ว
-- `PORT` ใน `.env` ถูกนำมาใช้งานผ่าน `process.env.PORT` แล้ว
-- `package.json` แก้ไขให้สอดคล้องกับโครงสร้างไฟล์จริงแล้ว
-- JWT หมดอายุใน `1m` เหมาะกับการทดสอบ แต่สั้นมากสำหรับการใช้งานจริง
+- โฟลเดอร์และโครงสร้างไฟล์ถูกปรับปรุงให้เป็นระเบียบตามมาตรฐานล่าสุดแล้ว
+- ระบบสินค้า (Product) ใช้โครงสร้างแบบยืดหยุ่นด้วย `Map` และรองรับการอัปเดตเฉพาะส่วน (Partial Update)
+- ระบบการทดสอบครอบคลุมทั้ง User และ Product พร้อมรันแบบอัตโนมัติด้วย `httpyac`
 - โปรเจกต์กำลังโฟกัสที่การพัฒนาบน **API v1** เป็นหลัก

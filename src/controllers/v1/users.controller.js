@@ -6,7 +6,7 @@ import generateToken from '../../utils/generateToken.js';
 // @access  Public
 export const registerUser = async (req, res, next) => {
     try {
-        const { username, email, password, confirmPassword } = req.body;
+        const { username, email, password, confirmPassword, role } = req.body;
 
         if (!username || !email || !password || !confirmPassword) {
             return res.status(400).json({
@@ -55,7 +55,8 @@ export const registerUser = async (req, res, next) => {
         const user = await User.create({
             username,
             email: email.toLowerCase(),
-            password
+            password,
+            role: role || 'user'
         });
 
         if (user) {
@@ -131,6 +132,30 @@ export const logoutUser = (req, res) => {
         success: true,
         message: 'Logged out successfully'
     });
+};
+
+// @desc    Get current logged in user profile
+// @route   GET /api/v1/users/me
+// @access  Private
+export const getMe = async (req, res, next) => {
+    try {
+        // ข้อมูล req.user ถูกดึงมาจาก middleware protect เรียบร้อยแล้ว
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: user
+        });
+    } catch (error) {
+        next(error);
+    }
 };
 
 // @desc    Get all users (v1 - MongoDB)
