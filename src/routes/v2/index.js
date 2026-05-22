@@ -1,10 +1,8 @@
 import express from 'express';
-import usersRoutesV2 from './users.routes.js';
-// import productsRoutesV2 from './products.routes.js';
+import usersRoutes from './users.routes.js';
 
 const router = express.Router();
 
-router.use('/users', usersRoutesV2);
-// router.use('/products', productsRoutesV2);
+router.use('/users', usersRoutes);
 
 export default router;

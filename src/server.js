@@ -1,12 +1,9 @@
 import express from 'express';
-import mongoose from 'mongoose';
-import { createClient } from '@supabase/supabase-js';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import connectDB from './config/mongodb.js';
 import apiRoutes from './routes/index.js';
+import errorHandler from './middlewares/error.middleware.js';
 
 const app = express();
 const PORT = process.env.PORT || 4001;
@@ -25,10 +22,8 @@ app.use(cookieParser());
 // API Routes
 app.use('/api', apiRoutes);
 
-// Basic Route
-app.get('/', (req, res) => {
-    res.send('Jamine Backend API is running');
-});
+// Centralized Error Handler (ต้องอยู่หลัง Routes)
+app.use(errorHandler);
 
 // Start Server
 app.listen(PORT, () => {

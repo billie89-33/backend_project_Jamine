@@ -5,6 +5,7 @@ const userSchema = new mongoose.Schema({
     username: {
         type: String,
         required: [true, 'Please add a username'],
+        unique: true,
         trim: true
     },
     role: {
@@ -25,7 +26,7 @@ const userSchema = new mongoose.Schema({
     password: {
         type: String,
         required: [true, 'Please add a password'],
-        minlength: 8,
+        minlength: 6,
         select: false 
     }
 }, {

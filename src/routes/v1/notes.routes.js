@@ -2,9 +2,9 @@ import express from 'express';
 
 const router = express.Router();
 
-// Placeholder for users v2
+// Placeholder for notes v1
 router.get('/', (req, res) => {
-    res.json({ message: 'Users v2 placeholder' });
+    res.json({ message: 'Notes v1 placeholder' });
 });
 
 export default router;

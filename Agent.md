@@ -344,6 +344,34 @@ node src/utils/generateSecretKey.js
 
 ผลลัพธ์สามารถนำไปใช้เป็น `JWT_SECRET`
 
+## กฎการพัฒนาและข้อควรระวัง (Development Rules)
+
+เพื่อให้โปรเจกต์มีมาตรฐานเดียวกันและบำรุงรักษาง่าย ควรปฏิบัติตามกฎดังนี้:
+
+- **Naming Convention**:
+    - ห้ามใช้ชื่อโฟลเดอร์ผิดสะกด (เช่น ห้ามใช้ `modeles` ให้ใช้ `models` เท่านั้น)
+    - ใช้ camelCase สำหรับชื่อตัวแปรและฟังก์ชัน
+    - ใช้ PascalCase สำหรับชื่อ Model/Class (เช่น `User`, `Product`)
+- **Separation of Concerns**:
+    - **ห้าม** เขียน Business Logic ไว้ในไฟล์ Route ให้แยกไปไว้ใน Controller เสมอ
+    - **ห้าม** เขียน Database Query ไว้ใน Controller โดยตรงถ้ามีความซับซ้อน (ควรใช้ Model methods)
+- **Error Handling**:
+    - **ต้อง** ใช้ Centralized Error Handler (`src/middlewares/error.middleware.js`) โดยการเรียก `next(error)` ใน catch block ของ Controller
+    - **ห้าม** เขียน `res.status(500).json(...)` ซ้ำๆ ในแต่ละ Controller
+- **Code Quality**:
+    - **ห้าม** ปล่อย Unused Imports (เช่น `mongoose`, `jwt` ที่ไม่ได้ใช้) ทิ้งไว้ในไฟล์ (เช่น `server.js`) ให้ลบออกเสมอเพื่อความสะอาด
+    - **ห้าม** มี Route ที่ไม่ได้ใช้งานจริงหลงเหลืออยู่ (เช่น Basic Route `/` ใน `server.js` เมื่อมี API Route จัดการแล้ว)
+- **Data Validation & Security**:
+    - **ต้อง** ตรวจสอบ (Validate) ข้อมูลให้ครบถ้วนก่อนบันทึกลง Database
+    - **กฎของ User**: Email ต้องเป็นตัวพิมพ์เล็กและมีรูปแบบที่ถูกต้อง (ต้องมี `@` และลงท้ายด้วย `.com`), Password ต้องมีความยาวขั้นต่ำ 6 ตัวอักษร, และ Username/Email ต้องไม่ซ้ำ (`unique`)
+    - **ห้าม** Commit ไฟล์ `.env` ขึ้น GitHub (ใช้ `.gitignore` เสมอ)
+    - **ห้าม** ส่ง Password กลับไปใน API Response (ใช้ `select: false` ใน Schema)
+- **Environment**:
+    - **ห้าม** Hard-code ค่า Port หรือ URI ในโค้ด ให้ดึงจาก `process.env` เสมอ
+- **Routing**:
+    - ต้องใช้ API Versioning (`/api/v1/...`) เสมอ และหลีกเลี่ยงการสร้างโครงสร้างโฟลเดอร์หรือไฟล์ Index ซ้ำซ้อน (เช่น ให้รวมไว้ที่ `src/routes/v1.routes.js`)
+    - **สถานะปัจจุบัน**: โปรเจกต์กำลังโฟกัสที่การพัฒนาบน **API v1** (โครงสร้าง v2 ถูกลบออกชั่วคราวเพื่อลดความซับซ้อน)
+
 ## ข้อสังเกตและจุดที่ควรปรับปรุง
 
 - โฟลเดอร์ชื่อ `modeles` น่าจะตั้งใจใช้คำว่า `models`

@@ -1,15 +1,18 @@
 import express from 'express';
+import { 
+    getUsers, 
+    registerUser, 
+    getUser, 
+    updateUser, 
+    deleteUser 
+} from '../../controllers/v1/users.controller.js';
 
 const router = express.Router();
 
-// Mock data (จะนำไปแยกใส่ src/fakeData/fakeUser.js ภายหลัง)
-let users = [
-    { id: "1", username: "mockuser", email: "mock@example.com" }
-];
-
-// @desc    Get all users (v1 - Memory only)
-router.get('/', (req, res) => {
-    res.json({ success: true, data: users });
-});
+router.get('/', getUsers);
+router.post('/register', registerUser);
+router.get('/:id', getUser);
+router.put('/:id', updateUser);
+router.delete('/:id', deleteUser);
 
 export default router;
