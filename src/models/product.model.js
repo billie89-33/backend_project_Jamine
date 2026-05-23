@@ -28,6 +28,12 @@ const productSchema = new mongoose.Schema({
         required: [true, 'Please add a category'],
         enum: ['Notebook', 'Keyboard', 'Computer', 'Monitor', 'Gaming Mouse']
     },
+    stock: {
+        type: Number,
+        required: [true, 'Please add stock quantity'],
+        min: [0, 'Stock cannot be negative'],
+        default: 0
+    },
     specifications: {
         type: Map,
         of: String,

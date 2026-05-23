@@ -7,8 +7,10 @@ import {
     deleteProduct 
 } from '../../controllers/v1/products.controller.js';
 import { protect, admin } from '../../middlewares/auth.middleware.js';
+import createUpload from '../../middlewares/upload.middleware.js';
 
 const router = express.Router();
+const upload = createUpload('products'); // Specify folder for products
 
 // Public routes
 router.get('/', getProducts);
@@ -16,7 +18,21 @@ router.get('/:id', getProduct);
 
 // Protected & Admin only routes
 router.post('/', protect, admin, createProduct);
+
+// Upload Product Image (Admin Only)
+router.post('/upload', protect, admin, upload.single('image'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ success: false, message: 'Please upload a file' });
+    }
+    res.status(200).json({
+        success: true,
+        imageUrl: req.file.path, // Cloudinary URL
+        publicId: req.file.filename // Cloudinary Public ID
+    });
+});
+
 router.put('/:id', protect, admin, updateProduct);
+router.patch('/:id', protect, admin, updateProduct);
 router.delete('/:id', protect, admin, deleteProduct);
 
 export default router;

@@ -7,15 +7,18 @@ import jwt from 'jsonwebtoken';
  */
 const generateToken = (res, userId) => {
     const token = jwt.sign({ userId }, process.env.JWT_SECRET, {
-        expiresIn: '30d' // อายุการใช้งานของ Token (ปรับเปลี่ยนได้ตามต้องการ)
+        expiresIn: '30d'
     });
 
-    // ตั้งค่า Cookie
+    const isProd = process.env.NODE_ENV === 'production';
+
+    // ตั้งค่า Cookie ให้ยืดหยุ่นสำหรับ Render และ Production อื่นๆ
     res.cookie('accessToken', token, {
-        httpOnly: true, // ป้องกันการเข้าถึงผ่าน Client-side JS (ป้องกัน XSS)
-        secure: process.env.NODE_ENV !== 'development', // ใช้ HTTPS ใน production
-        sameSite: 'strict', // ป้องกัน CSRF
-        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 วันในรูปแบบ milliseconds
+        httpOnly: true, // ป้องกัน XSS
+        secure: isProd, // ใช้ HTTPS เสมอใน Production (Render ใช้ HTTPS)
+        sameSite: isProd ? 'none' : 'lax', // 'none' จำเป็นมากสำหรับการยิงข้าม Domain (Render -> Client อื่น)
+        path: '/',
+        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 วัน
     });
 
     return token;

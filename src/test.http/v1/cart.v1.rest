@@ -1,0 +1,43 @@
+@baseUrl = http://localhost:4001/api/v1
+
+### 1. Login User (ต้อง Login ก่อนใช้งานตะกร้า)
+# @name userLogin
+POST {{baseUrl}}/users/login
+Content-Type: application/json
+
+{
+    "email": "user@example.com",
+    "password": "password123"
+}
+
+### 2. Get Cart (ดึงข้อมูลตะกร้าปัจจุบัน - พร้อม Populate ข้อมูลสินค้า)
+GET {{baseUrl}}/cart
+
+### 3. Add Item to Cart (เพิ่มสินค้าเข้าตะกร้า - มีระบบเช็ค Stock เรียลไทม์)
+# แทนที่ productId ด้วย ID จริงของสินค้า
+@productId = 664b1d6f0000000000000001
+POST {{baseUrl}}/cart
+Content-Type: application/json
+
+{
+    "productId": "{{productId}}",
+    "quantity": 2
+}
+
+### 4. Update Item Quantity (อัปเดตจำนวนสินค้า - เช็ค Stock เรียลไทม์)
+PATCH {{baseUrl}}/cart/update-quantity
+Content-Type: application/json
+
+{
+    "productId": "{{productId}}",
+    "quantity": 5
+}
+
+### 5. Get Cart Summary (ดูยอดสรุปราคารวม - คำนวณราคาสดจาก DB)
+GET {{baseUrl}}/cart/summary
+
+### 6. Remove Item from Cart
+DELETE {{baseUrl}}/cart/{{productId}}
+
+### 7. Logout
+POST {{baseUrl}}/users/logout

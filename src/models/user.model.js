@@ -30,7 +30,19 @@ const userSchema = new mongoose.Schema({
         select: false 
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    toJSON: {
+        transform(doc, ret) {
+            delete ret.password;
+            return ret;
+        }
+    },
+    toObject: {
+        transform(doc, ret) {
+            delete ret.password;
+            return ret;
+        }
+    }
 });
 
 // Hash password ก่อน save

@@ -1,6 +1,7 @@
 @baseUrl = http://localhost:4001/api/v1
 
 ### 1. Login as Admin (ต้องเป็นแอดมินเพื่อสร้าง/แก้ไขสินค้า)
+# @name adminLogin
 POST {{baseUrl}}/users/login
 Content-Type: application/json
 
@@ -12,7 +13,13 @@ Content-Type: application/json
 ### 2. Get All Products (Public)
 GET {{baseUrl}}/products
 
-### 3. Create New Product (Admin Only)
+### 2.1 Get Products by Category (Filter: Notebook)
+GET {{baseUrl}}/products?category=Notebook
+
+### 2.2 Get Products by Category (Filter: Keyboard)
+GET {{baseUrl}}/products?category=Keyboard
+
+### 3. Create New Product - Asus (Admin Only)
 POST {{baseUrl}}/products
 Content-Type: application/json
 
@@ -22,6 +29,7 @@ Content-Type: application/json
     "price": 69900,
     "sku": "ASUS-ROG-G16-999",
     "category": "Notebook",
+    "stock": 15,
     "specifications": {
         "CPU": "Intel Core i9",
         "GPU": "RTX 4080",
@@ -39,6 +47,7 @@ Content-Type: application/json
     "price": 15900,
     "sku": "LENOVO-SLIM3-001",
     "category": "Notebook",
+    "stock": 20,
     "specifications": {
         "Processors": "AMD Ryzen™ 3 7320U Processor",
         "Processor Speed": "2.4GHz up to 4.1GHz, 4C/8T, 2MB L2 / 4MB L3 Cache",
@@ -61,17 +70,46 @@ Content-Type: application/json
     }
 }
 
-### 4. Get Single Product
+### 3.2 Upload Product Image (Admin Only)
+# การยิงแบบ multipart/form-data เพื่ออัปโหลดไฟล์
+# ทดสอบอัปเดตรูปที่ 1
+POST {{baseUrl}}/products/upload
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image"; filename="product-sample-1.png"
+Content-Type: image/png
+
+< ../test-images/product-sample-1.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 3.3 Upload Product Image - Sample 2 (Admin Only)
+# ทดสอบอัปเดตรูปที่ 2
+POST {{baseUrl}}/products/upload
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image"; filename="product-sample-2.png"
+Content-Type: image/png
+
+< ../test-images/product-sample-2.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 4. Get Single Product (Detail with full specifications Map)
 # เปลี่ยน ID หลังจากสร้างสินค้าสำเร็จ
-@productId = 6a10708052890dc447a11390
+@productId = 6a107359f476fc4f9eb9b739
 GET {{baseUrl}}/products/{{productId}}
 
-### 5. Update Product (Admin Only - ทั้งชุด)
+### 5. Update Product - PUT (Replace/Full Update)
 PUT {{baseUrl}}/products/{{productId}}
 Content-Type: application/json
 
 {
+    "brand": "Asus",
+    "modelName": "ROG Zephyrus G16 - Updated",
     "price": 65900,
+    "stock": 10,
+    "category": "Notebook",
     "specifications": {
         "CPU": "Intel Core i9",
         "GPU": "RTX 4080",
@@ -79,16 +117,24 @@ Content-Type: application/json
     }
 }
 
-### 5.1 Partial Update Specifications (Admin Only - เฉพาะจุด)
-# ทดสอบอัปเดตแค่ฟิลด์เดียวใน specifications ข้อมูลส่วนอื่นต้องไม่หาย
-PUT {{baseUrl}}/products/{{productId}}
+### 5.1 Partial Update - PATCH (Append/Modify Specifications and Stock)
+# ทดสอบอัปเดตสต็อกและบางฟิลด์ใน specifications ข้อมูลส่วนอื่นต้องไม่หาย
+PATCH {{baseUrl}}/products/{{productId}}
 Content-Type: application/json
 
 {
+    "stock": 50,
     "specifications": {
-        "Storage": "2TB NVMe"
+        "Storage": "2TB NVMe",
+        "Base Frequency": "3.5GHz"
     }
 }
+
+### 5.2 Error Case: Invalid Product ID Format
+GET {{baseUrl}}/products/invalid-id-123
+
+### 5.3 Error Case: Product Not Found
+GET {{baseUrl}}/products/664b1d6f0000000000000000
 
 ### 6. Delete Product (Admin Only)
 DELETE {{baseUrl}}/products/{{productId}}

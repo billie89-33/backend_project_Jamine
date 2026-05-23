@@ -1,6 +1,13 @@
 import User from '../../models/user.model.js';
 import generateToken from '../../utils/generateToken.js';
 
+// Helper function to format user response
+const formatUserResponse = (user) => {
+    const userObj = user.toObject();
+    delete userObj.password; // Double check, although toObject transform should handle it
+    return userObj;
+};
+
 // @desc    Register a user to MongoDB (Sign Up)
 // @route   POST /api/v1/users/register
 // @access  Public
@@ -60,18 +67,12 @@ export const registerUser = async (req, res, next) => {
         });
 
         if (user) {
-            // สร้าง Token และส่งกลับไปใน Cookie
             generateToken(res, user._id);
 
             res.status(201).json({
                 success: true,
                 message: 'User registered and logged in successfully',
-                data: {
-                    id: user._id,
-                    username: user.username,
-                    email: user.email,
-                    role: user.role
-                }
+                data: formatUserResponse(user)
             });
         }
     } catch (error) {
@@ -107,12 +108,7 @@ export const loginUser = async (req, res, next) => {
         res.status(200).json({
             success: true,
             message: 'Logged in successfully',
-            data: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                role: user.role
-            }
+            data: formatUserResponse(user)
         });
     } catch (error) {
         next(error);
@@ -123,8 +119,13 @@ export const loginUser = async (req, res, next) => {
 // @route   POST /api/v1/users/logout
 // @access  Public
 export const logoutUser = (req, res) => {
+    const isProd = process.env.NODE_ENV === 'production';
+    
     res.cookie('accessToken', '', {
         httpOnly: true,
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'lax',
+        path: '/',
         expires: new Date(0)
     });
 
@@ -139,7 +140,6 @@ export const logoutUser = (req, res) => {
 // @access  Private
 export const getMe = async (req, res, next) => {
     try {
-        // ข้อมูล req.user ถูกดึงมาจาก middleware protect เรียบร้อยแล้ว
         const user = await User.findById(req.user._id);
 
         if (!user) {
@@ -151,7 +151,7 @@ export const getMe = async (req, res, next) => {
 
         res.status(200).json({
             success: true,
-            data: user
+            data: formatUserResponse(user)
         });
     } catch (error) {
         next(error);
@@ -164,10 +164,13 @@ export const getMe = async (req, res, next) => {
 export const getUsers = async (req, res, next) => {
     try {
         const users = await User.find();
+        
+        const formattedUsers = users.map(user => formatUserResponse(user));
+
         res.status(200).json({
             success: true,
             count: users.length,
-            data: users
+            data: formattedUsers
         });
     } catch (error) {
         next(error);
@@ -197,7 +200,7 @@ export const getUser = async (req, res, next) => {
 
         res.status(200).json({
             success: true,
-            data: user
+            data: formatUserResponse(user)
         });
     } catch (error) {
         next(error);
@@ -254,7 +257,7 @@ export const updateUser = async (req, res, next) => {
         res.status(200).json({
             success: true,
             message: 'User updated successfully',
-            data: user
+            data: formatUserResponse(user)
         });
     } catch (error) {
         next(error);

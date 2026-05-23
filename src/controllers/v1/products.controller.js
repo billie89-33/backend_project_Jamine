@@ -5,7 +5,15 @@ import Product from '../../models/product.model.js';
 // @access  Public
 export const getProducts = async (req, res, next) => {
     try {
-        const products = await Product.find();
+        const queryObj = {};
+
+        // Filtering by category if provided in query params
+        if (req.query.category) {
+            queryObj.category = req.query.category;
+        }
+
+        const products = await Product.find(queryObj);
+        
         res.status(200).json({
             success: true,
             count: products.length,
@@ -16,19 +24,22 @@ export const getProducts = async (req, res, next) => {
     }
 };
 
-// @desc    Get single product
+// @desc    Get single product detail
 // @route   GET /api/v1/products/:id
 // @access  Public
 export const getProduct = async (req, res, next) => {
     try {
-        if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+        const { id } = req.params;
+
+        // Validate MongoDB ID
+        if (!id.match(/^[0-9a-fA-F]{24}$/)) {
             return res.status(400).json({
                 success: false,
                 message: 'Invalid Product ID format'
             });
         }
 
-        const product = await Product.findById(req.params.id);
+        const product = await Product.findById(id);
 
         if (!product) {
             return res.status(404).json({
@@ -37,6 +48,7 @@ export const getProduct = async (req, res, next) => {
             });
         }
 
+        // Return product with specifications Map (frontend can loop through keys)
         res.status(200).json({
             success: true,
             data: product
@@ -61,12 +73,15 @@ export const createProduct = async (req, res, next) => {
     }
 };
 
-// @desc    Update product
-// @route   PUT /api/v1/products/:id
+// @desc    Update product (Partial Update for Specifications)
+// @route   PATCH /api/v1/products/:id
 // @access  Private (Admin only)
 export const updateProduct = async (req, res, next) => {
     try {
-        if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+        const { id } = req.params;
+
+        // Validate MongoDB ID
+        if (!id.match(/^[0-9a-fA-F]{24}$/)) {
             return res.status(400).json({
                 success: false,
                 message: 'Invalid Product ID format'
@@ -75,18 +90,24 @@ export const updateProduct = async (req, res, next) => {
 
         const updateData = { ...req.body };
 
-        // แปลงข้อมูล specifications ให้เป็น Dot Notation เพื่ออัปเดตเฉพาะฟิลด์ย่อย
-        if (updateData.specifications) {
+        // Handle nested specifications Map update using Dot Notation
+        // This ensures we append/overwrite specific keys without erasing the whole Map
+        if (updateData.specifications && typeof updateData.specifications === 'object') {
             for (const [key, value] of Object.entries(updateData.specifications)) {
                 updateData[`specifications.${key}`] = value;
             }
-            delete updateData.specifications; // ลบเพื่อป้องกันการเขียนทับทั้ง Object
+            // Remove the original specifications object to prevent it from overwriting the entire Map
+            delete updateData.specifications;
         }
 
-        const product = await Product.findByIdAndUpdate(req.params.id, updateData, {
-            new: true,
-            runValidators: true
-        });
+        const product = await Product.findByIdAndUpdate(
+            id,
+            { $set: updateData },
+            {
+                new: true,
+                runValidators: true
+            }
+        );
 
         if (!product) {
             return res.status(404).json({
@@ -109,14 +130,16 @@ export const updateProduct = async (req, res, next) => {
 // @access  Private (Admin only)
 export const deleteProduct = async (req, res, next) => {
     try {
-        if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+        const { id } = req.params;
+
+        if (!id.match(/^[0-9a-fA-F]{24}$/)) {
             return res.status(400).json({
                 success: false,
                 message: 'Invalid Product ID format'
             });
         }
 
-        const product = await Product.findByIdAndDelete(req.params.id);
+        const product = await Product.findByIdAndDelete(id);
 
         if (!product) {
             return res.status(404).json({

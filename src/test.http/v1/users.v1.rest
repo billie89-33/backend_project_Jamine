@@ -1,17 +1,17 @@
 @baseUrl = http://localhost:4001/api/v1
 
 
-### 1. Register Admin (สมัครแอดมิน)
-# เพิ่ม "role": "admin" เพื่อให้มีสิทธิ์ลบหรือดู User ทั้งหมดได้
-POST {{baseUrl}}/users/register
-Content-Type: application/json
+# ### 1. Register Admin (สมัครแอดมิน)
+# # เพิ่ม "role": "admin" เพื่อให้มีสิทธิ์ลบหรือดู User ทั้งหมดได้
+# POST {{baseUrl}}/users/register
+# Content-Type: application/json
 
-{
-    "username": "jamine_admin123",
-    "email": "admin123@example.com",
-    "password": "password123",
-    "confirmPassword": "password123",
-    "role": "admin"
+# {
+#     "username": "jamine_admin123",
+#     "email": "admin123@example.com",
+#     "password": "password123",
+#     "confirmPassword": "password123",
+#     "role": "admin"
 }
 
 
@@ -27,36 +27,43 @@ Content-Type: application/json
 
 
 
-### 3. Register Normal User (สมัครผู้ใช้ทั่วไป)
-POST {{baseUrl}}/users/register
-Content-Type: application/json
+# ### 3. Register Normal User (สมัครผู้ใช้ทั่วไป)
+# POST {{baseUrl}}/users/register
+# Content-Type: application/json
 
-{
-    "username": "jamine_normal",
-    "email": "user@example.com",
-    "password": "password123",
-    "confirmPassword": "password123"
-}
+# {
+#     "username": "jamine_normal",
+#     "email": "user@example.com",
+#     "password": "password123",
+#     "confirmPassword": "password123"
+# }
 
 
 
-### 4. Login Normal User (เข้าสู่ระบบผู้ใช้ทั่วไป)
-# หาก Login ด้วยตัวนี้ จะไม่สามารถใช้ Get All Users หรือ Delete ได้
-POST {{baseUrl}}/users/login
-Content-Type: application/json
+# ### 4. Login Normal User (เข้าสู่ระบบผู้ใช้ทั่วไป)
+# # หาก Login ด้วยตัวนี้ จะไม่สามารถใช้ Get All Users หรือ Delete ได้
+# POST {{baseUrl}}/users/login
+# Content-Type: application/json
 
-{
-    "email": "user@example.com",
-    "password": "password123"
-}
+# {
+#     "email": "user@example.com",
+#     "password": "password123"
+# }
+
+
 
 ### 4.5 Get My Profile (ดูโปรไฟล์ตัวเอง)
 # ต้อง Login ก่อน (จะ Admin หรือ User ก็ได้)
 GET {{baseUrl}}/users/me
 
+
+
 ### 5. Get All Users (เฉพาะ Admin)
 # ต้อง Login ด้วย Admin เท่านั้น
 GET {{baseUrl}}/users
+
+
+
 
 
 
