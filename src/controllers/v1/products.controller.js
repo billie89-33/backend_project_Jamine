@@ -29,17 +29,7 @@ export const getProducts = async (req, res, next) => {
 // @access  Public
 export const getProduct = async (req, res, next) => {
     try {
-        const { id } = req.params;
-
-        // Validate MongoDB ID
-        if (!id.match(/^[0-9a-fA-F]{24}$/)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid Product ID format'
-            });
-        }
-
-        const product = await Product.findById(id);
+        const product = await Product.findById(req.params.id);
 
         if (!product) {
             return res.status(404).json({
@@ -48,7 +38,6 @@ export const getProduct = async (req, res, next) => {
             });
         }
 
-        // Return product with specifications Map (frontend can loop through keys)
         res.status(200).json({
             success: true,
             data: product
@@ -73,35 +62,23 @@ export const createProduct = async (req, res, next) => {
     }
 };
 
-// @desc    Update product (Partial Update for Specifications)
+// @desc    Update product (Partial Update)
 // @route   PATCH /api/v1/products/:id
 // @access  Private (Admin only)
 export const updateProduct = async (req, res, next) => {
     try {
-        const { id } = req.params;
-
-        // Validate MongoDB ID
-        if (!id.match(/^[0-9a-fA-F]{24}$/)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid Product ID format'
-            });
-        }
-
         const updateData = { ...req.body };
 
         // Handle nested specifications Map update using Dot Notation
-        // This ensures we append/overwrite specific keys without erasing the whole Map
         if (updateData.specifications && typeof updateData.specifications === 'object') {
             for (const [key, value] of Object.entries(updateData.specifications)) {
                 updateData[`specifications.${key}`] = value;
             }
-            // Remove the original specifications object to prevent it from overwriting the entire Map
             delete updateData.specifications;
         }
 
         const product = await Product.findByIdAndUpdate(
-            id,
+            req.params.id,
             { $set: updateData },
             {
                 new: true,
@@ -130,16 +107,7 @@ export const updateProduct = async (req, res, next) => {
 // @access  Private (Admin only)
 export const deleteProduct = async (req, res, next) => {
     try {
-        const { id } = req.params;
-
-        if (!id.match(/^[0-9a-fA-F]{24}$/)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid Product ID format'
-            });
-        }
-
-        const product = await Product.findByIdAndDelete(id);
+        const product = await Product.findByIdAndDelete(req.params.id);
 
         if (!product) {
             return res.status(404).json({

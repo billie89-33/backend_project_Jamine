@@ -4,16 +4,12 @@ import Product from '../../models/product.model.js';
 /**
  * @desc    Helper function to calculate cart totals based on DB prices
  *          AND Validate/Adjust quantities against real-time stock
- * @param   {Array} items - Array of items (can be populated or not)
- * @param   {Boolean} autoAdjust - If true, will reduce quantity to match stock if stock is insufficient
- * @returns {Object} - { validatedItems, subtotal, shippingFee, total, isAdjusted }
  */
 const validateAndCalculateCart = async (items, autoAdjust = false) => {
     let subtotal = 0;
     let isAdjusted = false;
     const validatedItems = [];
 
-    // Get IDs (handle both populated and unpopulated cases)
     const productIds = items.map(item => item.productId._id || item.productId);
     const products = await Product.find({ _id: { $in: productIds } });
     const productMap = new Map(products.map(p => [p._id.toString(), p]));
@@ -61,12 +57,10 @@ const validateAndCalculateCart = async (items, autoAdjust = false) => {
     return { validatedItems, subtotal, shippingFee, total, isAdjusted };
 };
 
-// @desc    Get user cart (Optimized: Populate once, Sync to DB)
+// @desc    Get user cart
 // @route   GET /api/v1/cart
-// @access  Private
 export const getCart = async (req, res, next) => {
     try {
-        // 1. Populate once at the start to get latest product data
         let cart = await Cart.findOne({ userId: req.user._id }).populate('items.productId');
 
         if (!cart) {
@@ -77,10 +71,8 @@ export const getCart = async (req, res, next) => {
             });
         }
 
-        // 2. Validate and Auto-Adjust based on real-time stock
         const validation = await validateAndCalculateCart(cart.items, true);
         
-        // 3. Update fields for saving (Mongoose will only save fields in schema)
         cart.items = validation.validatedItems.map(item => ({
             productId: item.productId,
             quantity: item.quantity
@@ -89,62 +81,59 @@ export const getCart = async (req, res, next) => {
         cart.shippingFee = validation.shippingFee;
         cart.total = validation.total;
 
-        // Save the fresh state back to DB
         await cart.save();
-
-        // 4. Re-populate to ensure the items in response have full product details
-        // Note: We avoid findById by simply populating the existing doc if needed, 
-        // or just return the mapped version. But for consistency with frontend expectations:
-        const finalCart = await Cart.findById(cart._id).populate('items.productId');
+        await cart.populate('items.productId');
 
         res.status(200).json({
             success: true,
             isStockAdjusted: validation.isAdjusted,
-            data: finalCart
+            data: cart
         });
     } catch (error) {
         next(error);
     }
 };
 
-// @desc    Add or Update item in cart
-// @route   POST /api/v1/cart
-// @access  Private
 const MAX_CART_ITEMS = 50;
 
+// @desc    Add or Update item in cart
+// @route   POST /api/v1/cart
 export const addToCart = async (req, res, next) => {
     try {
         const { productId, quantity } = req.body;
-
-        const product = await Product.findById(productId);
-        if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
-
-        if (product.stock < quantity) {
-            return res.status(400).json({ 
-                success: false, 
-                message: `สินค้าในสต็อกมีไม่เพียงพอ (เหลืออยู่ ${product.stock} ชิ้น)`,
-                availableStock: product.stock
-            });
-        }
 
         let cart = await Cart.findOne({ userId: req.user._id });
         if (!cart) cart = new Cart({ userId: req.user._id, items: [] });
 
         const itemIndex = cart.items.findIndex(item => item.productId.toString() === productId);
 
+        let targetQuantity = quantity;
         if (itemIndex > -1) {
-            cart.items[itemIndex].quantity = quantity;
+            targetQuantity = cart.items[itemIndex].quantity + quantity;
+            cart.items[itemIndex].quantity = targetQuantity;
         } else {
             if (cart.items.length >= MAX_CART_ITEMS) {
-                return res.status(400).json({
-                    success: false,
-                    message: `ตะกร้าเต็มแล้ว (จำกัดสูงสุด ${MAX_CART_ITEMS} รายการต่อคน)`
-                });
+                return res.status(400).json({ success: false, message: `ตะกร้าเต็มแล้ว (จำกัดสูงสุด ${MAX_CART_ITEMS} รายการต่อคน)` });
             }
             cart.items.push({ productId, quantity });
         }
 
         const validation = await validateAndCalculateCart(cart.items, true);
+        
+        const addedItem = validation.validatedItems.find(item => item.productId.toString() === productId);
+        
+        if (!addedItem && validation.validatedItems.length < cart.items.length) {
+             return res.status(404).json({ success: false, message: 'Product not found' });
+        }
+
+        if (addedItem && addedItem.quantity < targetQuantity) {
+            return res.status(400).json({ 
+                success: false, 
+                message: `สินค้าในสต็อกมีไม่เพียงพอ (คุณมีอยู่แล้วในตะกร้า ${itemIndex > -1 ? (targetQuantity - quantity) : 0} ชิ้น และคลังเหลือรวมทั้งหมดแค่ ${addedItem.availableStock} ชิ้น)`,
+                availableStock: addedItem.availableStock
+            });
+        }
+
         cart.items = validation.validatedItems.map(item => ({
             productId: item.productId,
             quantity: item.quantity
@@ -154,36 +143,23 @@ export const addToCart = async (req, res, next) => {
         cart.total = validation.total;
 
         await cart.save();
-
-        const finalCart = await Cart.findById(cart._id).populate('items.productId');
+        await cart.populate('items.productId');
 
         res.status(200).json({
             success: true,
             isStockAdjusted: validation.isAdjusted,
-            data: finalCart
+            data: cart
         });
     } catch (error) {
         next(error);
     }
 };
 
-// @desc    Update item quantity in cart
+// @desc    Update item quantity (Absolute value)
 // @route   PATCH /api/v1/cart/update-quantity
-// @access  Private
 export const updateCartQuantity = async (req, res, next) => {
     try {
         const { productId, quantity } = req.body;
-
-        const product = await Product.findById(productId);
-        if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
-
-        if (product.stock < quantity) {
-            return res.status(400).json({ 
-                success: false, 
-                message: `สินค้าในสต็อกมีไม่เพียงพอ (เหลืออยู่ ${product.stock} ชิ้น)`,
-                availableStock: product.stock
-            });
-        }
 
         const cart = await Cart.findOne({ userId: req.user._id });
         if (!cart) return res.status(404).json({ success: false, message: 'Cart not found' });
@@ -191,9 +167,23 @@ export const updateCartQuantity = async (req, res, next) => {
         const itemIndex = cart.items.findIndex(item => item.productId.toString() === productId);
         if (itemIndex === -1) return res.status(404).json({ success: false, message: 'Item not in cart' });
 
-        cart.items[itemIndex].quantity = quantity;
+        if (quantity <= 0) {
+            cart.items.splice(itemIndex, 1);
+        } else {
+            cart.items[itemIndex].quantity = quantity;
+        }
 
         const validation = await validateAndCalculateCart(cart.items, true);
+        
+        const updatedItem = validation.validatedItems.find(item => item.productId.toString() === productId);
+        if (quantity > 0 && (!updatedItem || updatedItem.quantity < quantity)) {
+            return res.status(400).json({
+                success: false,
+                message: `สินค้าในสต็อกมีไม่เพียงพอ`,
+                availableStock: updatedItem ? updatedItem.availableStock : 0
+            });
+        }
+
         cart.items = validation.validatedItems.map(item => ({
             productId: item.productId,
             quantity: item.quantity
@@ -203,13 +193,12 @@ export const updateCartQuantity = async (req, res, next) => {
         cart.total = validation.total;
 
         await cart.save();
-
-        const finalCart = await Cart.findById(cart._id).populate('items.productId');
+        await cart.populate('items.productId');
 
         res.status(200).json({
             success: true,
             isStockAdjusted: validation.isAdjusted,
-            data: finalCart
+            data: cart
         });
     } catch (error) {
         next(error);
@@ -218,15 +207,22 @@ export const updateCartQuantity = async (req, res, next) => {
 
 // @desc    Remove item from cart
 // @route   DELETE /api/v1/cart/:productId
-// @access  Private
 export const removeFromCart = async (req, res, next) => {
     try {
         const cart = await Cart.findOne({ userId: req.user._id });
         if (!cart) return res.status(404).json({ success: false, message: 'Cart not found' });
 
-        cart.items = cart.items.filter(item => item.productId.toString() !== req.params.productId);
+        const targetProductId = req.params.productId;
+
+        const isItemExist = cart.items.some(item => item.productId.toString() === targetProductId);
+        if (!isItemExist) {
+            return res.status(404).json({ success: false, message: 'Product not found in your cart' });
+        }
+
+        cart.items = cart.items.filter(item => item.productId.toString() !== targetProductId);
 
         const validation = await validateAndCalculateCart(cart.items, true);
+        
         cart.items = validation.validatedItems.map(item => ({
             productId: item.productId,
             quantity: item.quantity
@@ -236,12 +232,11 @@ export const removeFromCart = async (req, res, next) => {
         cart.total = validation.total;
 
         await cart.save();
-
-        const finalCart = await Cart.findById(cart._id).populate('items.productId');
+        await cart.populate('items.productId');
 
         res.status(200).json({
             success: true,
-            data: finalCart
+            data: cart
         });
     } catch (error) {
         next(error);
@@ -250,28 +245,37 @@ export const removeFromCart = async (req, res, next) => {
 
 // @desc    Get Cart Summary
 // @route   GET /api/v1/cart/summary
-// @access  Private
 export const getCartSummary = async (req, res, next) => {
     try {
         const cart = await Cart.findOne({ userId: req.user._id });
         if (!cart) return res.status(200).json({ success: true, data: { subtotal: 0, shippingFee: 0, total: 0, itemCount: 0 } });
 
+        // 1. ส่งคำนวณสต็อกและค่าเงินล่าสุด
         const validation = await validateAndCalculateCart(cart.items, true);
         
-        // Update DB with latest summary
+        // 2. อัปเดตข้อมูลทุกฟิลด์กลับลงฐานข้อมูลให้ตรงกัน (ป้องกันข้อมูลขัดแย้ง)
+        cart.items = validation.validatedItems.map(item => ({
+            productId: item.productId,
+            quantity: item.quantity
+        }));
         cart.subtotal = validation.subtotal;
         cart.shippingFee = validation.shippingFee;
         cart.total = validation.total;
+        
         await cart.save();
 
+        // 3. คำนวณจำนวนชิ้นสินค้าทั้งหมดรวมกัน (Total Pieces)
+        const totalPieces = validation.validatedItems.reduce((sum, item) => sum + item.quantity, 0);
+
+        // 4. ส่งข้อมูลสรุปที่ถูกต้องกลับไปหน้าบ้าน
         res.status(200).json({
             success: true,
             isStockAdjusted: validation.isAdjusted,
             data: {
-                subtotal: validation.subtotal,
-                shippingFee: validation.shippingFee,
-                total: validation.total,
-                itemCount: validation.validatedItems.length
+                subtotal: cart.subtotal,
+                shippingFee: cart.shippingFee,
+                total: cart.total,
+                itemCount: totalPieces // ได้จำนวนชิ้นรวมที่ถูกต้องแล้ว เช่น 5 ชิ้น ไม่ใช่ 2 ชนิด
             }
         });
     } catch (error) {

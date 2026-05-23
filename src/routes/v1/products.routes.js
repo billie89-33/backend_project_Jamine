@@ -8,13 +8,14 @@ import {
 } from '../../controllers/v1/products.controller.js';
 import { protect, admin } from '../../middlewares/auth.middleware.js';
 import createUpload from '../../middlewares/upload.middleware.js';
+import { validateMongoId } from '../../middlewares/validateId.middleware.js';
 
 const router = express.Router();
-const upload = createUpload('products'); // Specify folder for products
+const upload = createUpload('products');
 
 // Public routes
 router.get('/', getProducts);
-router.get('/:id', getProduct);
+router.get('/:id', validateMongoId, getProduct);
 
 // Protected & Admin only routes
 router.post('/', protect, admin, createProduct);
@@ -26,13 +27,15 @@ router.post('/upload', protect, admin, upload.single('image'), (req, res) => {
     }
     res.status(200).json({
         success: true,
-        imageUrl: req.file.path, // Cloudinary URL
-        publicId: req.file.filename // Cloudinary Public ID
+        data: {
+            url: req.file.path, // Cloudinary URL
+            publicId: req.file.filename // Cloudinary Public ID
+        }
     });
 });
 
-router.put('/:id', protect, admin, updateProduct);
-router.patch('/:id', protect, admin, updateProduct);
-router.delete('/:id', protect, admin, deleteProduct);
+router.put('/:id', protect, admin, validateMongoId, updateProduct);
+router.patch('/:id', protect, admin, validateMongoId, updateProduct);
+router.delete('/:id', protect, admin, validateMongoId, deleteProduct);
 
 export default router;

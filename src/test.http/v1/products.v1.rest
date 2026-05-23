@@ -20,6 +20,7 @@ GET {{baseUrl}}/products?category=Notebook
 GET {{baseUrl}}/products?category=Keyboard
 
 ### 3. Create New Product - Asus (Admin Only)
+# ต้องแนบ image object (url, publicId) ไปด้วยเสมอตาม Model ใหม่
 POST {{baseUrl}}/products
 Content-Type: application/json
 
@@ -30,6 +31,10 @@ Content-Type: application/json
     "sku": "ASUS-ROG-G16-999",
     "category": "Notebook",
     "stock": 15,
+    "image": {
+        "url": "https://res.cloudinary.com/jamine/image/upload/v12345/products/asus-g16.jpg",
+        "publicId": "products/asus-g16"
+    },
     "specifications": {
         "CPU": "Intel Core i9",
         "GPU": "RTX 4080",
@@ -48,6 +53,10 @@ Content-Type: application/json
     "sku": "LENOVO-SLIM3-001",
     "category": "Notebook",
     "stock": 20,
+    "image": {
+        "url": "https://res.cloudinary.com/jamine/image/upload/v12345/products/lenovo-slim3.jpg",
+        "publicId": "products/lenovo-slim3"
+    },
     "specifications": {
         "Processors": "AMD Ryzen™ 3 7320U Processor",
         "Processor Speed": "2.4GHz up to 4.1GHz, 4C/8T, 2MB L2 / 4MB L3 Cache",
@@ -71,8 +80,8 @@ Content-Type: application/json
 }
 
 ### 3.2 Upload Product Image (Admin Only)
-# การยิงแบบ multipart/form-data เพื่ออัปโหลดไฟล์
-# ทดสอบอัปเดตรูปที่ 1
+# การยิงแบบ multipart/form-data เพื่ออัปโหลดไฟล์จริงขึ้น Cloudinary
+# ระบบจะส่งกลับ { url, publicId } เพื่อนำไปใช้ในขั้นตอนสร้างสินค้า
 POST {{baseUrl}}/products/upload
 Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
 
@@ -81,18 +90,6 @@ Content-Disposition: form-data; name="image"; filename="product-sample-1.png"
 Content-Type: image/png
 
 < ../test-images/product-sample-1.png
-------WebKitFormBoundary7MA4YWxkTrZu0gW--
-
-### 3.3 Upload Product Image - Sample 2 (Admin Only)
-# ทดสอบอัปเดตรูปที่ 2
-POST {{baseUrl}}/products/upload
-Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
-
-------WebKitFormBoundary7MA4YWxkTrZu0gW
-Content-Disposition: form-data; name="image"; filename="product-sample-2.png"
-Content-Type: image/png
-
-< ../test-images/product-sample-2.png
 ------WebKitFormBoundary7MA4YWxkTrZu0gW--
 
 ### 4. Get Single Product (Detail with full specifications Map)
@@ -110,6 +107,10 @@ Content-Type: application/json
     "price": 65900,
     "stock": 10,
     "category": "Notebook",
+    "image": {
+        "url": "https://res.cloudinary.com/jamine/image/upload/v12345/products/asus-g16-new.jpg",
+        "publicId": "products/asus-g16-new"
+    },
     "specifications": {
         "CPU": "Intel Core i9",
         "GPU": "RTX 4080",
@@ -117,8 +118,8 @@ Content-Type: application/json
     }
 }
 
-### 5.1 Partial Update - PATCH (Append/Modify Specifications and Stock)
-# ทดสอบอัปเดตสต็อกและบางฟิลด์ใน specifications ข้อมูลส่วนอื่นต้องไม่หาย
+### 5.1 Partial Update - PATCH (Append/Modify Specifications, Stock, or Image)
+# ทดสอบอัปเดตแบบเฉพาะเจาะจง
 PATCH {{baseUrl}}/products/{{productId}}
 Content-Type: application/json
 
