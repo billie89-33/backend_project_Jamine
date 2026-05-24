@@ -55,7 +55,8 @@ const checkAndExpireOrders = async () => {
 // @access  Private
 export const createOrder = async (req, res, next) => {
     try {
-        const { shippingAddress } = req.body;
+        // ⚡ รับค่ายอดเงินที่ลูกค้าเห็นบนหน้าจอ (clientTotal) มารีเช็คด้วยเพื่อความโปร่งใส
+        const { shippingAddress, clientTotal } = req.body;
 
         if (!shippingAddress || !shippingAddress.fullName || !shippingAddress.phone || !shippingAddress.address) {
             return res.status(400).json({ success: false, message: 'กรุณากรอกข้อมูลที่อยู่สำหรับจัดส่งให้ครบถ้วน' });
@@ -108,6 +109,9 @@ export const createOrder = async (req, res, next) => {
 
                 orderItems.push({
                     productId: product._id,
+                    brand: product.brand,       // Snapshot แบรนด์
+                    modelName: product.modelName, // Snapshot ชื่อรุ่น
+                    image: product.image.url,   // Snapshot รูปภาพ
                     quantity: cartItem.quantity,
                     priceAtPurchase: product.price // ล็อกราคาสินค้าไว้เลย ห้ามเปลี่ยน
                 });
@@ -122,9 +126,21 @@ export const createOrder = async (req, res, next) => {
             return res.status(400).json({ success: false, message: error.message });
         }
 
-        // คำนวณยอดเงินรวม (กฎเดียวกับหน้าตะกร้า)
+        // คำนวณยอดเงินรวมสุทธิหลังบ้าน (กฎเดียวกับหน้าตะกร้า)
         const shippingFee = (subtotal >= 1000 || subtotal === 0) ? 0 : 50;
         const total = subtotal + shippingFee;
+
+        // 🛡️ ⚡ ตรวจสอบราคาสินค้าเปลี่ยนตัดหน้าก่อนเปิดบิลจริง (Secure Price Verification)
+        if (clientTotal && Number(clientTotal) !== total) {
+            // เจอปัญหาราคาไม่ตรงกัน ทำการคืนสต็อกที่เพิ่งหักไปทั้งหมดทันที (Rollback)
+            for (const reserved of reservedItems) {
+                await Product.findByIdAndUpdate(reserved.productId, { $inc: { stock: reserved.quantity } });
+            }
+            return res.status(400).json({ 
+                success: false, 
+                message: 'ราคาสินค้าหรือค่าจัดส่งในระบบมีการอัปเดต โปรดรีเฟรชหน้าตะกร้าสินค้าและทำรายการใหม่อีกครั้ง' 
+            });
+        }
 
         // 4. บันทึก Order และตั้งเวลาหมดอายุ +15 นาที
         const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
@@ -171,7 +187,7 @@ export const getOrderById = async (req, res, next) => {
         }).populate('items.productId', 'brand modelName image price');
 
         if (!order) {
-            return res.status(404).json({ success: false, message: 'Order not found' });
+            return res.status(404).json({ success: false, message: 'ไม่พบรายการคำสั่งซื้อนี้' });
         }
 
         res.status(200).json({

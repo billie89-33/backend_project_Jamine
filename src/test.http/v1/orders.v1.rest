@@ -17,6 +17,7 @@ POST {{baseUrl}}/orders
 Content-Type: application/json
 
 {
+    "clientTotal": 350,
     "shippingAddress": {
         "fullName": "Star Chaser",
         "phone": "0812345678",

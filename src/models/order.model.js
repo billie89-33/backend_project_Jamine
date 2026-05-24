@@ -6,6 +6,9 @@ const orderItemSchema = new mongoose.Schema({
         ref: 'Product', 
         required: true 
     },
+    brand: String,      // Snapshot: แบรนด์ ณ วันที่ซื้อ
+    modelName: String,  // Snapshot: ชื่อรุ่น ณ วันที่ซื้อ
+    image: String,      // Snapshot: URL รูปภาพ ณ วันที่ซื้อ
     quantity: { 
         type: Number, 
         required: true, 
