@@ -7,7 +7,9 @@ import {
     getMe,
     getUser, 
     updateUser, 
-    deleteUser 
+    deleteUser,
+    addAddress,
+    deleteAddress
 } from '../../controllers/v1/users.controller.js';
 import { protect, admin } from '../../middlewares/auth.middleware.js';
 
@@ -22,6 +24,10 @@ router.post('/logout', logoutUser);
 router.get('/me', protect, getMe);
 router.get('/:id', protect, getUser);
 router.put('/:id', protect, updateUser);
+
+// Address Management
+router.post('/addresses', protect, addAddress);
+router.delete('/addresses/:addressId', protect, deleteAddress);
 
 // Admin only routes (ต้องล็อกอินและเป็นแอดมิน)
 router.get('/', protect, admin, getUsers);

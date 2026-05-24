@@ -28,7 +28,19 @@ const userSchema = new mongoose.Schema({
         required: [true, 'Please add a password'],
         minlength: 6,
         select: false 
-    }
+    },
+    addresses: [
+        {
+            fullName: { type: String, required: true },
+            phone: { type: String, required: true },
+            address: { type: String, required: true },
+            province: { type: String, required: true },
+            district: { type: String, required: true },
+            subDistrict: { type: String, required: true },
+            postalCode: { type: String, required: true },
+            isDefault: { type: Boolean, default: false }
+        }
+    ]
 }, {
     timestamps: true,
     toJSON: {

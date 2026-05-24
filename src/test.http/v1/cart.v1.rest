@@ -15,13 +15,13 @@ GET {{baseUrl}}/cart
 
 ### 3. Add Item to Cart (เพิ่มสินค้าเข้าตะกร้า - มีระบบเช็ค Stock เรียลไทม์)
 # แทนที่ productId ด้วย ID จริงของสินค้า
-@productId = 664b1d6f0000000000000001
+@productId = 6a107359f476fc4f9eb9b739
 POST {{baseUrl}}/cart
 Content-Type: application/json
 
 {
     "productId": "{{productId}}",
-    "quantity": 2
+    "quantity": 1
 }
 
 ### 4. Update Item Quantity (อัปเดตจำนวนสินค้า - เช็ค Stock เรียลไทม์)

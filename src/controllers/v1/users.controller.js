@@ -264,6 +264,58 @@ export const updateUser = async (req, res, next) => {
     }
 };
 
+// @desc    Add new address to user profile
+// @route   POST /api/v1/users/addresses
+// @access  Private
+export const addAddress = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+        const newAddress = req.body;
+
+        // ถ้าตั้งเป็น default ให้เอา default อันเก่าออกก่อน
+        if (newAddress.isDefault) {
+            user.addresses.forEach(addr => addr.isDefault = false);
+        }
+
+        user.addresses.push(newAddress);
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'เพิ่มที่อยู่ใหม่สำเร็จ',
+            data: user.addresses
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Delete an address from user profile
+// @route   DELETE /api/v1/users/addresses/:addressId
+// @access  Private
+export const deleteAddress = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+        user.addresses = user.addresses.filter(
+            addr => addr._id.toString() !== req.params.addressId
+        );
+
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'ลบที่อยู่สำเร็จ',
+            data: user.addresses
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 // @desc    Delete user
 // @route   DELETE /api/v1/users/:id
 // @access  Public

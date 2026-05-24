@@ -1,0 +1,43 @@
+@baseUrl = http://localhost:4001/api/v1
+
+### 1. Login User (ต้อง Login ก่อนเพื่อใช้งานระบบสั่งซื้อ)
+# @name userLogin
+POST {{baseUrl}}/users/login
+Content-Type: application/json
+
+{
+    "email": "user@example.com",
+    "password": "password123"
+}
+
+### 2. Create Order (Checkout)
+# จะไปดึงข้อมูลจากตะกร้า หักสต็อก และสร้างออเดอร์ (ล้างตะกร้าทิ้ง)
+# @name createOrder
+POST {{baseUrl}}/orders
+Content-Type: application/json
+
+{
+    "shippingAddress": {
+        "fullName": "Star Chaser",
+        "phone": "0812345678",
+        "address": "123/45 หมู่หมู่บ้านดาวตก",
+        "province": "กรุงเทพมหานคร",
+        "district": "เขตดินแดง",
+        "subDistrict": "แขวงดินแดง",
+        "postalCode": "10400"
+    }
+}
+
+### 3. Get Order By ID (เช็ครายละเอียดออเดอร์)
+# เอา ID จากขั้นตอนที่ 2 มาใส่ตรงนี้
+@orderId = {{createOrder.response.body.data._id}}
+GET {{baseUrl}}/orders/{{orderId}}
+
+### 4. Mock Payment (จำลองการจ่ายเงินสำเร็จ)
+POST {{baseUrl}}/orders/{{orderId}}/mock-payment
+
+### 5. Mock Payment (Idempotency Check - กดซ้ำต้องไม่พัง)
+POST {{baseUrl}}/orders/{{orderId}}/mock-payment
+
+### 6. Logout
+POST {{baseUrl}}/users/logout
