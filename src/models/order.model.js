@@ -53,6 +53,11 @@ const orderSchema = new mongoose.Schema({
         enum: ['Awaiting Payment', 'Paid', 'Cancelled'],
         default: 'Awaiting Payment'
     },
+    paymentDetails: {
+        method: String,
+        paidAt: Date,
+        transactionId: String
+    },
     expiresAt: { 
         type: Date, 
         required: true 

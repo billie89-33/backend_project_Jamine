@@ -232,8 +232,14 @@ export const mockPayment = async (req, res, next) => {
             });
         }
 
-        // เปลี่ยนสถานะ
+        // เปลี่ยนสถานะ และบันทึกหลักฐานการชำระเงินจำลอง (Payment Evidence)
         order.status = 'Paid';
+        order.paymentDetails = {
+            method: 'PromptPay (Mock)',
+            paidAt: new Date(),
+            transactionId: `MOCK-TXN-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+        };
+
         await order.save();
 
         res.status(200).json({
