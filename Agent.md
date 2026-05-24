@@ -70,6 +70,9 @@ src/
     v1/                     📂 จัดกลุ่มแยกเวอร์ชันให้ตรงตามระบบ Routes
       users.controller.js
       products.controller.js
+      admin/                📂 Logic สำหรับ Admin Sub-module (🔒 ต้องได้รับคำสั่งจากผู้ใช้เท่านั้น)
+        users.admin.controller.js
+        products.admin.controller.js
   fakeData/
     fakeUser.js
     fakeProduct.js
@@ -80,6 +83,7 @@ src/
     user.model.js
     product.model.js
     cart.model.js
+    order.model.js
   routes/
     index.js
     v1/                     📂 โฟลเดอร์เก็บ route แยกตามโมดูล
@@ -88,15 +92,22 @@ src/
       products.routes.js
       notes.routes.js
       cart.routes.js
+      orders.routes.js
+      admin/                📂 เส้นทางสำหรับ Admin (🔒 ถูกปกป้องด้วย Centralized Middleware)
+        index.js
+        users.admin.routes.js
+        products.admin.routes.js
   test.http/
     v1/                     📂 ไฟล์ทดสอบ API (.rest)
       users.v1.rest
       products.v1.rest
       cart.v1.rest
+      orders.v1.rest
   utils/
     generateToken.js
     generateSecretKey.js
-```
+
+---
 
 ## Server Flow
 
@@ -109,8 +120,17 @@ src/
 
 ---
 
-## รูปแบบการแยกหมวดหมู่ที่ยืดหยุ่น (Flexible Categorization Flow)
+## กฎการพัฒนา Admin Sub-module (Admin Rules)
 
+เพื่อให้ระบบแอดมินมีความปลอดภัยและเป็นไปตามความต้องการของผู้ใช้:
+
+- **User-Directed Implementation Only**: การสร้าง, แก้ไข หรือเพิ่มฟีเจอร์ใดๆ ในส่วนของ Admin (โฟลเดอร์ `controllers/v1/admin` และ `routes/v1/admin`) **ต้องได้รับคำสั่งโดยตรงจากผู้ใช้เท่านั้น** ห้าม AI คิดหรือเพิ่มฟีเจอร์เองโดยพลการ
+- **Centralized Security**: ทุกเส้นทางภายใต้ `routes/v1/admin` ต้องถูกปกป้องด้วย Middleware `protect` และ `admin` ที่ไฟล์ `admin/index.js` เสมอ
+- **File Naming**: ไฟล์ในส่วนแอดมินต้องมีคำต่อท้าย `.admin.` เช่น `users.admin.controller.js` เพื่อความชัดเจนในการจัดการ
+
+---
+
+## รูปแบบการแยกหมวดหมู่ที่ยืดหยุ่น (Flexible Categorization Flow)
 เพื่อรองรับโปรเจกต์ที่มีความซับซ้อนและต้องการความยืดหยุ่นในการจัดหมวดหมู่ข้อมูล (เช่น สินค้า, บทความ, หรือเนื้อหาอื่นๆ) ควรใช้แนวทางดังนี้:
 
 - **ใช้ Map หรือ JSON/Object สำหรับข้อมูลที่ไม่ตายตัว:**

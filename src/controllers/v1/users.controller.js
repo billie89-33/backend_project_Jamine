@@ -158,25 +158,6 @@ export const getMe = async (req, res, next) => {
     }
 };
 
-// @desc    Get all users (v1 - MongoDB)
-// @route   GET /api/v1/users
-// @access  Public
-export const getUsers = async (req, res, next) => {
-    try {
-        const users = await User.find();
-        
-        const formattedUsers = users.map(user => formatUserResponse(user));
-
-        res.status(200).json({
-            success: true,
-            count: users.length,
-            data: formattedUsers
-        });
-    } catch (error) {
-        next(error);
-    }
-};
-
 // @desc    Get single user
 // @route   GET /api/v1/users/:id
 // @access  Public
@@ -310,36 +291,6 @@ export const deleteAddress = async (req, res, next) => {
             success: true,
             message: 'ลบที่อยู่สำเร็จ',
             data: user.addresses
-        });
-    } catch (error) {
-        next(error);
-    }
-};
-
-// @desc    Delete user
-// @route   DELETE /api/v1/users/:id
-// @access  Public
-export const deleteUser = async (req, res, next) => {
-    try {
-        if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid User ID format'
-            });
-        }
-
-        const user = await User.findByIdAndDelete(req.params.id);
-
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        res.status(200).json({
-            success: true,
-            message: 'User deleted successfully'
         });
     } catch (error) {
         next(error);
