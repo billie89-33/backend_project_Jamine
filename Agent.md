@@ -103,6 +103,9 @@ src/
       products.v1.rest
       cart.v1.rest
       orders.v1.rest
+      admin/                📂 ไฟล์ทดสอบ API สำหรับแอดมินโดยเฉพาะ
+        users.admin.v1.rest
+        products.admin.v1.rest
   utils/
     generateToken.js
     generateSecretKey.js
@@ -239,3 +242,14 @@ src/
 3.  **Transactional Integrity**: มีระบบ Rollback สต็อกสินค้าทันทีหากเกิดข้อผิดพลาดในขั้นตอนสร้างออเดอร์ หรือเมื่อตรวจพบว่าราคาสินค้ามีการเปลี่ยนแปลง (Price Verification)
 4.  **Administrative Audit Trail**: บันทึกหลักฐานการชำระเงินและรหัสธุรกรรม (Payment Evidence) ทุกครั้ง เพื่อความโปร่งใสและการตรวจสอบย้อนกลับโดย Admin
 5.  **Performance Optimization**: ใช้ Bulk Write สำหรับงานจำนวนมาก, Pagination สำหรับรายการสินค้า และ Field Selection เพื่อลดขนาด Payload ของ API
+
+---
+
+## บทเรียนที่ได้รับและข้อผิดพลาดที่พบ (Session Learnings & Pitfalls)
+
+จากการพัฒนาล่าสุด มีจุดสำคัญที่ต้องระวังเพื่อไม่ให้เกิดข้อผิดพลาดซ้ำ:
+
+- **Relative Import Path Trap**: เมื่อมีการปรับโครงสร้างโฟลเดอร์ให้ลึกขึ้น (เช่น การแยก `v1/admin`) **ต้อง** ตรวจสอบการ Import ไฟล์ Model/Middleware เสมอ เพราะระดับของ `../` จะเปลี่ยนไป (หากผิดพลาดจะเกิด `ERR_MODULE_NOT_FOUND`)
+- **Background Task Resilience**: ฟังก์ชันที่ทำงานเบื้องหลังหรือทำงานอัตโนมัติ (เช่น `checkAndExpireOrders`) **ต้อง** ครอบด้วย `try-catch` เสมอ และต้องเขียนลอจิกให้รองรับการทำงานซ้อนกัน (Idempotent) เพื่อไม่ให้แอปพลิเคชันหลักค้างเมื่อฐานข้อมูลมีปัญหา
+- **Atomic Over Memory**: หลีกเลี่ยงการดึงข้อมูลมาคำนวณใน RAM แล้วเซฟกลับ (Read-Modify-Write) ให้เปลี่ยนมาใช้คำสั่งระดับ Database เช่น `$inc` หรือ `bulkWrite` เพื่อความเร็วและความถูกต้องของข้อมูลสูงสุด (Concurrency Safety)
+- **Organized Testing**: การแยกไฟล์ `.rest` ตามบทบาทผู้ใช้ (User vs Admin) และจัดใส่โฟลเดอร์ให้ตรงกับโครงสร้าง Backend ช่วยให้การตรวจสอบความปลอดภัยของ API ทำได้แม่นยำและรวดเร็วขึ้นมหาศาล

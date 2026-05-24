@@ -1,4 +1,4 @@
-import User from '../../models/user.model.js';
+import User from '../../../models/user.model.js';
 
 // Helper function to format user response
 const formatUserResponse = (user) => {

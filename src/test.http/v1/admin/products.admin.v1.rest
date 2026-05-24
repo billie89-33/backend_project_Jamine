@@ -1,0 +1,63 @@
+@baseUrl = http://localhost:4001/api/v1
+
+### 1. Login as Admin
+# @name adminLogin
+POST {{baseUrl}}/users/login
+Content-Type: application/json
+
+{
+    "email": "admin123@example.com",
+    "password": "password123"
+}
+
+### 2. Create New Product (Admin Only)
+# @name createProduct
+POST {{baseUrl}}/admin/products
+Content-Type: application/json
+
+{
+    "brand": "Asus",
+    "modelName": "ROG Zephyrus G16",
+    "price": 69900,
+    "sku": "ASUS-ROG-G16-999",
+    "category": "Notebook",
+    "stock": 15,
+    "image": {
+        "url": "https://res.cloudinary.com/jamine/image/upload/v12345/products/asus-g16.jpg",
+        "publicId": "products/asus-g16"
+    },
+    "specifications": {
+        "CPU": "Intel Core i9",
+        "GPU": "RTX 4080",
+        "RAM": "32GB"
+    }
+}
+
+### 3. Upload Product Image (Admin Only)
+POST {{baseUrl}}/admin/products/upload
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image"; filename="product-sample-1.png"
+Content-Type: image/png
+
+< ../test-images/product-sample-1.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 4. Update Product - PATCH (Admin Only)
+@productId = {{createProduct.response.body.data._id}}
+PATCH {{baseUrl}}/admin/products/{{productId}}
+Content-Type: application/json
+
+{
+    "stock": 50,
+    "specifications": {
+        "Storage": "2TB NVMe"
+    }
+}
+
+### 5. Delete Product (Admin Only)
+DELETE {{baseUrl}}/admin/products/{{productId}}
+
+### 6. Logout
+POST {{baseUrl}}/users/logout
