@@ -7,6 +7,7 @@ import {
     getCartSummary 
 } from '../../controllers/v1/cart.controller.js';
 import { protect } from '../../middlewares/auth.middleware.js';
+import { validateMongoId } from '../../middlewares/validateId.middleware.js';
 
 const router = express.Router();
 
@@ -24,6 +25,6 @@ router.patch('/update-quantity', updateCartQuantity);
 
 // --- 2. Dynamic Routes (ต้องวางไว้ด้านล่าง) ---
 router.post('/', addToCart);
-router.delete('/:productId', removeFromCart);
+router.delete('/:productId', validateMongoId, removeFromCart);
 
 export default router;

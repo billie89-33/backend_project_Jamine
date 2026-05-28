@@ -37,7 +37,8 @@ const productSchema = new mongoose.Schema({
     category: {
         type: String,
         required: [true, 'Please add a category'],
-        enum: ['Notebook', 'Keyboard', 'Computer', 'Monitor', 'Gaming Mouse']
+        enum: ['Notebook', 'Keyboard', 'Computer', 'Monitor', 'Gaming Mouse'],
+        index: true
     },
     stock: {
         type: Number,

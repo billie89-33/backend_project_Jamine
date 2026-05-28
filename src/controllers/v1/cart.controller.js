@@ -11,7 +11,7 @@ const validateAndCalculateCart = async (items, autoAdjust = false) => {
     const validatedItems = [];
 
     const productIds = items.map(item => item.productId._id || item.productId);
-    const products = await Product.find({ _id: { $in: productIds } });
+    const products = await Product.find({ _id: { $in: productIds } }).lean();
     const productMap = new Map(products.map(p => [p._id.toString(), p]));
 
     for (const item of items) {
@@ -67,7 +67,7 @@ export const getCart = async (req, res, next) => {
             cart = await Cart.create({ userId: req.user._id, items: [] });
             return res.status(200).json({ 
                 success: true, 
-                data: { _id: cart._id, userId: cart.userId, items: [], subtotal: 0, shippingFee: 0, total: 0 } 
+                data: cart 
             });
         }
 

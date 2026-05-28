@@ -17,9 +17,9 @@ POST {{baseUrl}}/orders
 Content-Type: application/json
 
 {
-    "clientTotal": 350,
+    "clientTotal": 15900,
     "shippingAddress": {
-        "fullName": "Star Chaser",
+        "fullName": "bank",
         "phone": "0812345678",
         "address": "123/45 หมู่หมู่บ้านดาวตก",
         "province": "กรุงเทพมหานคร",

@@ -7,43 +7,52 @@ export const getProducts = async (req, res, next) => {
     try {
         const queryObj = {};
 
-        // 1. กรองตามหมวดหมู่ (เมื่อกดจาก Navbar / Carousel ด้านบน)
+        // Helper to handle Array or String from query
+        const getSingleValue = (val) => Array.isArray(val) ? val[0] : val;
+
+        // 1. กรองตามหมวดหมู่
         if (req.query.category) {
-            queryObj.category = req.query.category;
+            queryObj.category = getSingleValue(req.query.category);
         }
 
-        // 2. กรองเฉพาะสินค้าที่มีในสต็อก (Checkbox: มีในสต็อก)
+        // 2. กรองเฉพาะสินค้าที่มีในสต็อก
         if (req.query.inStock === 'true') {
-            queryObj.stock = { $gt: 0 }; // สต็อกต้องมากกว่า 0
+            queryObj.stock = { $gt: 0 };
         }
 
-        // 3. กรองตามช่วงราคา (Min - Max Price Input)
+        // 3. กรองตามช่วงราคา (Min - Max Price Input) - ป้องกัน NaN
         if (req.query.minPrice || req.query.maxPrice) {
             queryObj.price = {};
-            if (req.query.minPrice) queryObj.price.$gte = Number(req.query.minPrice); // ราคาตั้งแต่...
-            if (req.query.maxPrice) queryObj.price.$lte = Number(req.query.maxPrice); // ราคาไม่เกิน...
+            const minP = Number(getSingleValue(req.query.minPrice));
+            const maxP = Number(getSingleValue(req.query.maxPrice));
+            
+            if (!isNaN(minP)) queryObj.price.$gte = minP;
+            if (!isNaN(maxP)) queryObj.price.$lte = maxP;
+            
+            // ถ้าพังทั้งคู่ ลบ field price ออกจาก query
+            if (Object.keys(queryObj.price).length === 0) delete queryObj.price;
         }
 
         // 4. กรองตามคุณสมบัติพิเศษ (Specifications Map)
         if (req.query.switchType) {
-            queryObj['specifications.switchType'] = req.query.switchType;
+            queryObj['specifications.switchType'] = getSingleValue(req.query.switchType);
         }
         if (req.query.layout) {
-            queryObj['specifications.layout'] = req.query.layout;
+            queryObj['specifications.layout'] = getSingleValue(req.query.layout);
         }
 
-        // 5. ระบบแบ่งหน้า (Pagination) เพื่อป้องกันปัญหา RAM เต็ม (Crash)
-        const page = parseInt(req.query.page, 10) || 1;
-        const limit = parseInt(req.query.limit, 10) || 10; // ค่าเริ่มต้นดึงมา 10 รายการต่อหน้า
+        // 5. ระบบแบ่งหน้า (Pagination) - ป้องกัน Skip ติดลบ
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.max(1, parseInt(req.query.limit, 10) || 10);
         const skip = (page - 1) * limit;
 
-        // ค้นหาข้อมูลพร้อมใช้งาน Pagination และ Field Selection
+        // ค้นหาข้อมูลพร้อมใช้งาน Pagination และ Field Selection + .lean() เพื่อประหยัด RAM
         const products = await Product.find(queryObj)
-            .select('-specifications') // ไม่ดึงฟิลด์ specifications มาในหน้ารวม เพื่อลดการใช้ RAM และ Bandwidth
+            .select('-specifications')
             .skip(skip)
-            .limit(limit);
+            .limit(limit)
+            .lean();
 
-        // นับจำนวนสินค้าทั้งหมดที่ตรงตามเงื่อนไข (เพื่อนำไปสร้างปุ่มแบ่งหน้าฝั่ง Frontend)
         const total = await Product.countDocuments(queryObj);
 
         res.status(200).json({
@@ -64,13 +73,12 @@ export const getProducts = async (req, res, next) => {
 // @access  Public
 export const getProduct = async (req, res, next) => {
     try {
-        const product = await Product.findById(req.params.id);
+        const product = await Product.findById(req.params.id).lean();
 
         if (!product) {
-            return res.status(404).json({
-                success: false,
-                message: 'Product not found'
-            });
+            const error = new Error('Product not found');
+            error.status = 404;
+            return next(error);
         }
 
         res.status(200).json({

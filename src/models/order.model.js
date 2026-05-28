@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import crypto from 'crypto';
 
 const orderItemSchema = new mongoose.Schema({
     productId: { 
@@ -21,10 +22,16 @@ const orderItemSchema = new mongoose.Schema({
 }, { _id: false });
 
 const orderSchema = new mongoose.Schema({
+    orderNumber: {
+        type: String,
+        unique: true,
+        index: true
+    },
     userId: { 
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'User', 
-        required: true 
+        required: true,
+        index: true
     },
     items: [orderItemSchema],
     shippingAddress: {
@@ -64,6 +71,21 @@ const orderSchema = new mongoose.Schema({
     } // เวลาหมดอายุเพื่อกวาดล้างและคืนสต็อก
 }, {
     timestamps: true
+});
+
+// Pre-save Middleware เพื่อสร้าง orderNumber อัตโนมัติ
+orderSchema.pre('save', function () {
+    if (!this.isNew) return;
+
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}${mm}${dd}`; 
+
+    const randomStr = crypto.randomBytes(2).toString('hex').toUpperCase();
+
+    this.orderNumber = `ORD-${dateStr}-${randomStr}`;
 });
 
 const Order = mongoose.model('Order', orderSchema);

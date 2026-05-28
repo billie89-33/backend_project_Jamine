@@ -5,28 +5,37 @@ import User from '../models/user.model.js';
  * @desc    Middleware to protect routes and verify JWT from HttpOnly Cookie
  */
 export const protect = async (req, res, next) => {
-    let token;
+    // ป้องกันกรณี req.cookies เป็น undefined หรือไม่มีค่า
+    const token = req.cookies ? req.cookies.accessToken : null;
 
-    // อ่าน token จาก cookie ชื่อ 'accessToken'
-    token = req.cookies.accessToken;
+    if (!token) {
+        const error = new Error('Not authorized, no token');
+        error.status = 401; // ต้องแนบ status ไปให้ Centralized Error Handler
+        return next(error);
+    }
 
-    if (token) {
-        try {
-            // Verify token
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    try {
+        // Verify token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-            // ดึงข้อมูล User จาก ID ใน token และแนบไปกับ request (ยกเว้น password)
-            req.user = await User.findById(decoded.userId);
+        // ดึงข้อมูล User จาก ID (ไม่เอารหัสผ่าน และใช้ .lean() เพื่อประหยัด RAM)
+        req.user = await User.findById(decoded.userId).select('-password').lean();
 
-            next();
-        } catch (error) {
-            res.status(401);
-            const err = new Error('Not authorized, token failed');
-            next(err);
+        // ⚠️ สำคัญมาก: เช็กว่าผู้ใช้ยังมีตัวตนอยู่ในระบบไหม เพื่อป้องกันแอปพลิเคชันล่มจาก req.user = null
+        if (!req.user) {
+            const error = new Error('Not authorized, user not found');
+            error.status = 401;
+            return next(error);
         }
-    } else {
-        res.status(401);
-        const err = new Error('Not authorized, no token');
+
+        next();
+    } catch (error) {
+        const message = error.name === 'TokenExpiredError' 
+            ? 'Token expired, please login again' 
+            : 'Not authorized, token failed';
+            
+        const err = new Error(message);
+        err.status = 401;
         next(err);
     }
 };
@@ -35,11 +44,12 @@ export const protect = async (req, res, next) => {
  * @desc    Middleware to check for Admin role
  */
 export const admin = (req, res, next) => {
+    // ปลอดภัยเพราะเช็ก req.user ก่อนเข้าถึง req.user.role ป้องกัน Cannot read properties of null
     if (req.user && req.user.role === 'admin') {
         next();
     } else {
-        res.status(403);
         const err = new Error('Not authorized as an admin');
+        err.status = 403; // 403 Forbidden เหมาะสมสำหรับสิทธิ์ไม่ถึง
         next(err);
     }
 };

@@ -1,4 +1,5 @@
 import Product from '../../../models/product.model.js';
+import cloudinary from '../../../config/cloudinary.js';
 
 // @desc    Create new product
 // @route   POST /api/v1/admin/products
@@ -22,7 +23,16 @@ export const updateProduct = async (req, res, next) => {
     try {
         const updateData = { ...req.body };
 
-        // Handle nested specifications Map update using Dot Notation
+        // 1. ตรวจสอบการอัปเดตรูปภาพใหม่เพื่อลบรูปเก่าใน Cloudinary (Storage Leak Fix)
+        if (updateData.image && updateData.image.publicId) {
+            const oldProduct = await Product.findById(req.params.id).select('image').lean();
+            if (oldProduct && oldProduct.image && oldProduct.image.publicId !== updateData.image.publicId) {
+                // ลบรูปเก่าทิ้งจาก Cloud
+                await cloudinary.uploader.destroy(oldProduct.image.publicId);
+            }
+        }
+
+        // 2. แปลงข้อมูล specifications Map ให้อยู่ในรูป Dot Notation (Partial Update Rule)
         if (updateData.specifications && typeof updateData.specifications === 'object') {
             for (const [key, value] of Object.entries(updateData.specifications)) {
                 updateData[`specifications.${key}`] = value;
@@ -40,10 +50,9 @@ export const updateProduct = async (req, res, next) => {
         );
 
         if (!product) {
-            return res.status(404).json({
-                success: false,
-                message: 'Product not found'
-            });
+            const error = new Error('Product not found');
+            error.status = 404;
+            return next(error);
         }
 
         res.status(200).json({
@@ -60,14 +69,21 @@ export const updateProduct = async (req, res, next) => {
 // @access  Private (Admin only)
 export const deleteProduct = async (req, res, next) => {
     try {
-        const product = await Product.findByIdAndDelete(req.params.id);
+        const product = await Product.findById(req.params.id);
 
         if (!product) {
-            return res.status(404).json({
-                success: false,
-                message: 'Product not found'
-            });
+            const error = new Error('Product not found');
+            error.status = 404;
+            return next(error);
         }
+
+        // 1. ลบรูปภาพออกจาก Cloudinary ทันที (Storage Leak Fix)
+        if (product.image && product.image.publicId) {
+            await cloudinary.uploader.destroy(product.image.publicId);
+        }
+
+        // 2. ลบข้อมูลใน Database
+        await product.deleteOne();
 
         res.status(200).json({
             success: true,

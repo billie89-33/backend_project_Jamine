@@ -15,7 +15,7 @@ GET {{baseUrl}}/cart
 
 ### 3. Add Item to Cart (เพิ่มสินค้าเข้าตะกร้า - มีระบบเช็ค Stock เรียลไทม์)
 # แทนที่ productId ด้วย ID จริงของสินค้า
-@productId = 6a107359f476fc4f9eb9b739
+@productId = 6a12cb941f43c23b670d75b0
 POST {{baseUrl}}/cart
 Content-Type: application/json
 

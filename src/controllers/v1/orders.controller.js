@@ -8,44 +8,49 @@ const checkAndExpireOrders = async () => {
     try {
         const now = new Date();
 
-        // 1. ชิงเปลี่ยนสถานะออเดอร์ที่หมดอายุใน DB ให้เป็น 'Cancelled' ทันที (ดักปัญหาแย่งกันรันซ้อน)
-        const expiredOrders = await Order.find({
+        // 1. ค้นหาออเดอร์ที่หมดอายุเบื้องต้น
+        const candidateOrders = await Order.find({
             status: 'Awaiting Payment',
             expiresAt: { $lt: now }
-        });
+        }).select('_id items').lean();
 
-        if (expiredOrders.length === 0) return;
+        if (candidateOrders.length === 0) return;
 
-        const orderIds = expiredOrders.map(order => order._id);
+        const bulkRestockOps = [];
+        let expiredCount = 0;
         
-        // ล็อกสถานะในฐานข้อมูลก่อนเลย ป้องกันฟังก์ชันอื่นมาดึงซ้ำ (Race Condition Fix)
-        await Order.updateMany(
-            { _id: { $in: orderIds } },
-            { $set: { status: 'Cancelled' } }
-        );
+        // 2. ล็อกและเปลี่ยนสถานะทีละรายการแบบ Atomic (Race Condition Fix)
+        // เพื่อให้มั่นใจว่า Request นี้เป็นคนเดียวที่ "ปิด" ออเดอร์นี้ได้
+        for (const order of candidateOrders) {
+            const lockedOrder = await Order.findOneAndUpdate(
+                { _id: order._id, status: 'Awaiting Payment' }, // 🔒 ล็อกสถานะเดิม
+                { $set: { status: 'Cancelled' } },             // ⚡ เปลี่ยนสถานะ
+                { new: true }
+            ).select('_id').lean();
 
-        // 2. รวบรวมรายการสินค้าทั้งหมดเพื่อเตรียมอัปเดตคืนสต็อกรอบเดียว (Bulk Write - N+1 Query Fix)
-        const bulkOps = [];
-        
-        for (const order of expiredOrders) {
-            for (const item of order.items) {
-                bulkOps.push({
-                    updateOne: {
-                        filter: { _id: item.productId },
-                        update: { $inc: { stock: item.quantity } } // บวกสต็อกคืนระบบ
-                    }
-                });
+            // ถ้า lockedOrder มีค่า แสดงว่าเราเป็นคน "ปิด" ออเดอร์นี้สำเร็จ -> มีสิทธิ์คืนสต็อก
+            if (lockedOrder) {
+                expiredCount++;
+                for (const item of order.items) {
+                    bulkRestockOps.push({
+                        updateOne: {
+                            filter: { _id: item.productId },
+                            update: { $inc: { stock: item.quantity } }
+                        }
+                    });
+                }
             }
         }
 
-        // 3. ยิงคำสั่งคืนสต็อกสินค้าทั้งหมดในทีเดียว (⚡ ทำงานไวและประหยัด RAM บน Render)
-        if (bulkOps.length > 0) {
-            await Product.bulkWrite(bulkOps);
+        // 3. ยิงคำสั่งคืนสต็อกสินค้าทั้งหมดในทีเดียว (⚡ Bulk Write - N+1 Query Fix)
+        if (bulkRestockOps.length > 0) {
+            await Product.bulkWrite(bulkRestockOps);
         }
 
-        console.log(`[Auto-Timeout] คืนสต็อกและยกเลิกออเดอร์สำเร็จจำนวน ${expiredOrders.length} รายการ`);
+        if (expiredCount > 0) {
+            console.log(`[Auto-Timeout] คืนสต็อกและยกเลิกออเดอร์สำเร็จจำนวน ${expiredCount} รายการ`);
+        }
     } catch (error) {
-        // ดักจับ Error ไม่ให้แอปพลิเคชันหลักค้างหรือหยุดทำงาน (Error Handling Fix)
         console.error('เกิดข้อผิดพลาดในระบบล้างออเดอร์หมดอายุ:', error);
     }
 };
@@ -55,32 +60,57 @@ const checkAndExpireOrders = async () => {
 // @access  Private
 export const createOrder = async (req, res, next) => {
     try {
-        // ⚡ รับค่ายอดเงินที่ลูกค้าเห็นบนหน้าจอ (clientTotal) มารีเช็คด้วยเพื่อความโปร่งใส
-        const { shippingAddress, clientTotal } = req.body;
+        const { addressId, shippingAddress: manualAddress, clientTotal } = req.body;
+        let finalShippingAddress;
 
-        if (!shippingAddress || !shippingAddress.fullName || !shippingAddress.phone || !shippingAddress.address) {
-            return res.status(400).json({ success: false, message: 'กรุณากรอกข้อมูลที่อยู่สำหรับจัดส่งให้ครบถ้วน' });
+        // 🟢 Logic การเลือกที่อยู่
+        if (manualAddress && manualAddress.fullName && manualAddress.phone && manualAddress.address) {
+            finalShippingAddress = manualAddress;
+        } else if (addressId) {
+            const savedAddress = req.user.addresses.find(addr => addr._id.toString() === addressId);
+            if (!savedAddress) {
+                const error = new Error('ไม่พบที่อยู่ที่ระบุในโปรไฟล์ของคุณ');
+                error.status = 400;
+                return next(error);
+            }
+            finalShippingAddress = savedAddress;
+        } else {
+            const defaultAddress = req.user.addresses.find(addr => addr.isDefault) || req.user.addresses[0];
+            if (!defaultAddress) {
+                const error = new Error('กรุณาระบุที่อยู่สำหรับจัดส่ง หรือเพิ่มที่อยู่ในโปรไฟล์ก่อนสั่งซื้อ');
+                error.status = 400;
+                return next(error);
+            }
+            finalShippingAddress = defaultAddress;
         }
 
-        // 1. กวาดล้างออเดอร์หมดอายุเพื่อคืนสต็อกเผื่อใครกำลังเล็งของชิ้นเดียวกันอยู่
+        const requiredFields = ['fullName', 'phone', 'address', 'province', 'district', 'subDistrict', 'postalCode'];
+        for (const field of requiredFields) {
+            if (!finalShippingAddress[field]) {
+                const error = new Error(`ข้อมูลที่อยู่ไม่สมบูรณ์: ขาด ${field}`);
+                error.status = 400;
+                return next(error);
+            }
+        }
+
         await checkAndExpireOrders();
 
-        // 2. ดึงข้อมูลตะกร้าของผู้ใช้
-        const cart = await Cart.findOne({ userId: req.user._id });
+        const cart = await Cart.findOne({ userId: req.user._id }).lean();
         if (!cart || cart.items.length === 0) {
-            return res.status(400).json({ success: false, message: 'ตะกร้าสินค้าว่างเปล่า' });
+            const error = new Error('ตะกร้าสินค้าว่างเปล่า');
+            error.status = 400;
+            return next(error);
         }
 
         const productIds = cart.items.map(item => item.productId);
-        const products = await Product.find({ _id: { $in: productIds } });
+        const products = await Product.find({ _id: { $in: productIds } }).lean();
         const productMap = new Map(products.map(p => [p._id.toString(), p]));
 
         const orderItems = [];
         let subtotal = 0;
-        const reservedItems = []; // สำหรับเก็บประวัติการหักสต็อก เผื่อต้อง Rollback คืน
+        const reservedItems = []; 
 
         try {
-            // 3. Inventory Reservation (หักสต็อกทีละรายการแบบปลอดภัย)
             for (const cartItem of cart.items) {
                 const prodIdStr = cartItem.productId.toString();
                 const product = productMap.get(prodIdStr);
@@ -89,66 +119,70 @@ export const createOrder = async (req, res, next) => {
                     throw new Error(`ไม่พบข้อมูลสินค้า (ID: ${prodIdStr}) อาจถูกลบไปแล้ว`);
                 }
 
-                // 🔒 ใช้ $inc ร่วมกับเงื่อนไขดักสต็อกติดลบแบบ Atomic
                 const updatedProduct = await Product.findOneAndUpdate(
                     { _id: product._id, stock: { $gte: cartItem.quantity } },
-                    { $inc: { stock: -cartItem.quantity } }, // หักออก
+                    { $inc: { stock: -cartItem.quantity } },
                     { new: true }
-                );
+                ).select('_id').lean();
 
                 if (!updatedProduct) {
                     throw new Error(`สินค้า "${product.modelName}" ในคลังมีไม่เพียงพอ (อาจถูกซื้อตัดหน้าไปแล้ว)`);
                 }
 
-                // จำไว้ว่าเราหักชิ้นไหนไปแล้วบ้าง เผื่อชิ้นถัดไปพังจะได้คืนชิ้นนี้ได้ถูก
                 reservedItems.push(cartItem);
 
-                // บันทึกราคา ณ วินาทีที่กดซื้อ
                 const itemTotal = product.price * cartItem.quantity;
                 subtotal += itemTotal;
 
                 orderItems.push({
                     productId: product._id,
-                    brand: product.brand,       // Snapshot แบรนด์
-                    modelName: product.modelName, // Snapshot ชื่อรุ่น
-                    image: product.image.url,   // Snapshot รูปภาพ
+                    brand: product.brand,
+                    modelName: product.modelName,
+                    image: product.image.url,
                     quantity: cartItem.quantity,
-                    priceAtPurchase: product.price // ล็อกราคาสินค้าไว้เลย ห้ามเปลี่ยน
+                    priceAtPurchase: product.price
                 });
             }
         } catch (error) {
-            // 🚨 Rollback Mechanism: ถ้าหักสต็อกพังกลางคัน ต้องคืนสต็อกสินค้าก่อนหน้าที่หักไปแล้วทั้งหมด
-            for (const reserved of reservedItems) {
-                await Product.findByIdAndUpdate(reserved.productId, {
-                    $inc: { stock: reserved.quantity }
-                });
+            // 🚨 Atomic Rollback Mechanism (Bulk Write Fix)
+            if (reservedItems.length > 0) {
+                const rollbackOps = reservedItems.map(reserved => ({
+                    updateOne: {
+                        filter: { _id: reserved.productId },
+                        update: { $inc: { stock: reserved.quantity } }
+                    }
+                }));
+                await Product.bulkWrite(rollbackOps);
             }
-            return res.status(400).json({ success: false, message: error.message });
+            const err = new Error(error.message);
+            err.status = 400;
+            return next(err);
         }
 
-        // คำนวณยอดเงินรวมสุทธิหลังบ้าน (กฎเดียวกับหน้าตะกร้า)
         const shippingFee = (subtotal >= 1000 || subtotal === 0) ? 0 : 50;
         const total = subtotal + shippingFee;
 
-        // 🛡️ ⚡ ตรวจสอบราคาสินค้าเปลี่ยนตัดหน้าก่อนเปิดบิลจริง (Secure Price Verification)
         if (clientTotal && Number(clientTotal) !== total) {
-            // เจอปัญหาราคาไม่ตรงกัน ทำการคืนสต็อกที่เพิ่งหักไปทั้งหมดทันที (Rollback)
-            for (const reserved of reservedItems) {
-                await Product.findByIdAndUpdate(reserved.productId, { $inc: { stock: reserved.quantity } });
+            if (reservedItems.length > 0) {
+                const rollbackOps = reservedItems.map(reserved => ({
+                    updateOne: {
+                        filter: { _id: reserved.productId },
+                        update: { $inc: { stock: reserved.quantity } }
+                    }
+                }));
+                await Product.bulkWrite(rollbackOps);
             }
-            return res.status(400).json({ 
-                success: false, 
-                message: 'ราคาสินค้าหรือค่าจัดส่งในระบบมีการอัปเดต โปรดรีเฟรชหน้าตะกร้าสินค้าและทำรายการใหม่อีกครั้ง' 
-            });
+            const error = new Error('ราคาสินค้าหรือค่าจัดส่งในระบบมีการอัปเดต โปรดรีเฟรชหน้าตะกร้าสินค้าและทำรายการใหม่อีกครั้ง');
+            error.status = 400;
+            return next(error);
         }
 
-        // 4. บันทึก Order และตั้งเวลาหมดอายุ +15 นาที
-        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); 
 
         const order = await Order.create({
             userId: req.user._id,
             items: orderItems,
-            shippingAddress,
+            shippingAddress: finalShippingAddress,
             subtotal,
             shippingFee,
             total,
@@ -156,12 +190,9 @@ export const createOrder = async (req, res, next) => {
             expiresAt
         });
 
-        // 5. ล้างข้อมูลในตะกร้าทันทีที่สร้างออเดอร์สำเร็จ
-        cart.items = [];
-        cart.subtotal = 0;
-        cart.shippingFee = 0;
-        cart.total = 0;
-        await cart.save();
+        await Cart.findOneAndUpdate({ userId: req.user._id }, {
+            $set: { items: [], subtotal: 0, shippingFee: 0, total: 0 }
+        });
 
         res.status(201).json({
             success: true,
@@ -178,16 +209,17 @@ export const createOrder = async (req, res, next) => {
 // @access  Private
 export const getOrderById = async (req, res, next) => {
     try {
-        // อัปเดตสถานะแบบเรียลไทม์
         await checkAndExpireOrders();
 
         const order = await Order.findOne({
             _id: req.params.orderId,
-            userId: req.user._id // ดึงได้เฉพาะของตัวเองเท่านั้น
-        }).populate('items.productId', 'brand modelName image price');
+            userId: req.user._id
+        }).populate('items.productId', 'brand modelName image price').lean();
 
         if (!order) {
-            return res.status(404).json({ success: false, message: 'ไม่พบรายการคำสั่งซื้อนี้' });
+            const error = new Error('ไม่พบรายการคำสั่งซื้อนี้');
+            error.status = 404;
+            return next(error);
         }
 
         res.status(200).json({
