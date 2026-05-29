@@ -1,0 +1,40 @@
+@baseUrl = http://localhost:4001/api/v1
+
+### 1. Register a Normal User
+# @name registerUser
+POST {{baseUrl}}/users/register
+Content-Type: application/json
+
+{
+    "username": "admin_jamine",
+    "email": "admin@example.com",
+    "password": "password123",
+    "confirmPassword": "password123"
+}
+
+### 2. Login as that User
+# @name userLogin
+POST {{baseUrl}}/users/login
+Content-Type: application/json
+
+{
+    "email": "admin123@example.com",
+    "password": "password123"
+}
+
+### 3. Promote MYSELF to Admin 🚀
+# ใช้ ID ที่ได้จากการ Login เมื่อกี้มาเปลี่ยน Role ตัวเองเป็น Admin
+@myId = {{userLogin.response.body.data._id}}
+
+PUT {{baseUrl}}/users/{{myId}}
+Content-Type: application/json
+
+{
+    "role": "admin"
+}
+
+### 4. Verify My New Role
+GET {{baseUrl}}/users/me
+
+### 5. Logout
+POST {{baseUrl}}/users/logout

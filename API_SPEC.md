@@ -136,6 +136,38 @@
 
 ---
 
+## 🛠️ 6. Admin Products (🔒 Admin Only)
+ระบบจัดการสินค้าสำหรับแอดมิน ใช้รูปแบบ **Single-Step Atomic Upload** (ส่งรูปและข้อมูลพร้อมกัน)
+
+### **6.1 Create Product (เพิ่มสินค้าใหม่)**
+- **Path:** `POST /admin/products`
+- **Method:** `POST`
+- **Content-Type:** `multipart/form-data`
+- **Body Fields:**
+  - `brand` (String): แบรนด์สินค้า (เช่น Asus, MSI)
+  - `modelName` (String): ชื่อรุ่น (เช่น ROG Zephyrus G16)
+  - `price` (Number): ราคาขาย
+  - `sku` (String): รหัสสินค้า (ต้องไม่ซ้ำกัน)
+  - `category` (String): หมวดหมู่ (`Notebook`, `Keyboard`, `Computer`, `Monitor`, `Gaming Mouse`)
+  - `stock` (Number): จำนวนสต็อก (ห้ามติดลบ)
+  - `specifications` (JSON String): สเปคสินค้า ส่งมาเป็นก้อน JSON String
+    - *Example:* `{"CPU": "i9", "RAM": "32GB"}`
+  - `image` (File): ไฟล์รูปภาพสินค้า (รองรับ jpg, png, webp)
+
+### **6.2 Update Product (แก้ไขสินค้า)**
+- **Path:** `PATCH /admin/products/:id`
+- **Method:** `PATCH`
+- **Content-Type:** `multipart/form-data`
+- **Body Fields:** ส่งเฉพาะฟิลด์ที่ต้องการแก้ไข (Partial Update)
+  - **การเปลี่ยนรูปภาพ:** หากต้องการเปลี่ยนรูป ให้ส่งไฟล์ใหม่มาที่ฟิลด์ `image` ระบบจะลบรูปเก่าทิ้งและอัปเดตรูปใหม่ให้อัตโนมัติ
+  - **การแก้ไขสเปค:** การส่ง `specifications` มาแก้ไข จะเป็นการอัปเดตเฉพาะฟิลด์ที่ส่งมา (เช่น ส่ง `{"RAM": "64GB"}` มา ฟิลด์ CPU เดิมจะยังอยู่ไม่หายไป)
+
+### **6.3 Delete Product (ลบสินค้า)**
+- **Path:** `DELETE /admin/products/:id`
+- **Action:** ลบข้อมูลในฐานข้อมูล พร้อมลบรูปภาพที่เกี่ยวข้องออกจาก Cloud Storage ทันที
+
+---
+
 ## ⚠️ Common Error Codes
 - `400 Bad Request`: ข้อมูลที่ส่งมาไม่ครบ หรือไม่ถูกต้องตามเงื่อนไข (เช่น รหัสผ่านสั้นไป)
 - `401 Unauthorized`: ไม่ได้ล็อกอิน หรือคุกกี้หมดอายุ

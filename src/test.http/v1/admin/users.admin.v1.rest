@@ -1,12 +1,25 @@
 @baseUrl = http://localhost:4001/api/v1
 
+### 0. Register Admin (For Testing)
+# @name registerAdmin
+POST {{baseUrl}}/users/register
+Content-Type: application/json
+
+{
+    "username": "admin_jamine",
+    "email": "admin@example.com",
+    "password": "password123",
+    "confirmPassword": "password123",
+    "role": "admin"
+}
+
 ### 1. Login as Admin
 # @name adminLogin
 POST {{baseUrl}}/users/login
 Content-Type: application/json
 
 {
-    "email": "admin123@example.com",
+    "email": "admin@example.com",
     "password": "password123"
 }
 
@@ -14,9 +27,9 @@ Content-Type: application/json
 GET {{baseUrl}}/admin/users
 
 ### 3. Delete User (Admin Only)
-# แทนที่ :id ด้วย ID จริง
-@userId = 6a1068e8fec96774ab5ea603
-DELETE {{baseUrl}}/admin/users/{{userId}}
+# แทนที่ด้วย ID จาก Response ของการดึง User หรือ Register
+@targetUserId = {{registerAdmin.response.body.data._id}}
+DELETE {{baseUrl}}/admin/users/{{targetUserId}}
 
 ### 4. Logout
 POST {{baseUrl}}/users/logout

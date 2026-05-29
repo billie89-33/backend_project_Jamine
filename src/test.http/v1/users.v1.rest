@@ -1,12 +1,24 @@
 @baseUrl = http://localhost:4001/api/v1
 
+### 0. Register New User
+# @name registerUser
+POST {{baseUrl}}/users/register
+Content-Type: application/json
+
+{
+    "username": "jamine_tester",
+    "email": "tester@example.com",
+    "password": "password123",
+    "confirmPassword": "password123"
+}
+
 ### 1. Login Normal User
 # @name userLogin
 POST {{baseUrl}}/users/login
 Content-Type: application/json
 
 {
-    "email": "user@example.com",
+    "email": "tester@example.com",
     "password": "password123"
 }
 

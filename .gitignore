@@ -87,3 +87,7 @@ Thumbs.db
 .vscode/
 *.code-workspace
 .history/
+
+# Documentation & Skills
+*.md
+!README.md

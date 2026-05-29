@@ -6,34 +6,71 @@ POST {{baseUrl}}/users/login
 Content-Type: application/json
 
 {
-    "email": "admin123@example.com",
+    "email": "admin@example.com",
     "password": "password123"
 }
 
-### 2. Create New Product (Admin Only)
+### 2. Create New Product - Integrated Upload (Admin Only)
 # @name createProduct
 POST {{baseUrl}}/admin/products
-Content-Type: application/json
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
 
-{
-    "brand": "Asus",
-    "modelName": "ROG Zephyrus G16",
-    "price": 69900,
-    "sku": "ASUS-ROG-G16-999",
-    "category": "Notebook",
-    "stock": 15,
-    "image": {
-        "url": "https://res.cloudinary.com/jamine/image/upload/v12345/products/asus-g16.jpg",
-        "publicId": "products/asus-g16"
-    },
-    "specifications": {
-        "CPU": "Intel Core i9",
-        "GPU": "RTX 4080",
-        "RAM": "32GB"
-    }
-}
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="brand"
 
-### 3. Upload Product Image (Admin Only)
+MSI
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="modelName"
+
+Katana 15
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="price"
+
+45900
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="sku"
+
+MSI-KATANA-15-B13V
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="category"
+
+Notebook
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="stock"
+
+20
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="specifications"
+
+{"CPU": "Intel Core i7-13620H", "GPU": "RTX 4060", "RAM": "16GB"}
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image"; filename="product-sample-1.png"
+Content-Type: image/png
+
+< ../../test-images/product-sample-1.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 3. Create Product FAILURE - Test Atomic Cleanup (Admin Only)
+# จงใจส่ง SKU เดิมเพื่อให้เกิด Database Error และทดสอบว่าระบบลบรูปใน Cloudinary หรือไม่
+POST {{baseUrl}}/admin/products
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="brand"
+
+MSI-Duplicate
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="sku"
+
+MSI-KATANA-15-B13V
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image"; filename="product-sample-2.png"
+Content-Type: image/png
+
+< ../../test-images/product-sample-2.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 4. Upload Product Image ONLY (Utility/Legacy)
 POST {{baseUrl}}/admin/products/upload
 Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
 
@@ -41,7 +78,7 @@ Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0g
 Content-Disposition: form-data; name="image"; filename="product-sample-1.png"
 Content-Type: image/png
 
-< ../test-images/product-sample-1.png
+< ../../test-images/product-sample-1.png
 ------WebKitFormBoundary7MA4YWxkTrZu0gW--
 
 ### 4. Update Product - PATCH (Admin Only)
