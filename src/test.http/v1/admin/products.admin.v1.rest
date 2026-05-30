@@ -24,6 +24,10 @@ Content-Disposition: form-data; name="modelName"
 
 Katana 15
 ------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="description"
+
+Powerful gaming laptop with RTX 4060 and 13th Gen Intel Core i7.
+------WebKitFormBoundary7MA4YWxkTrZu0gW
 Content-Disposition: form-data; name="price"
 
 45900
@@ -87,6 +91,7 @@ PATCH {{baseUrl}}/admin/products/{{productId}}
 Content-Type: application/json
 
 {
+    "description": "Updated description: The ultimate gaming machine.",
     "stock": 50,
     "specifications": {
         "Storage": "2TB NVMe"

@@ -7,48 +7,72 @@ export const getProducts = async (req, res, next) => {
     try {
         const queryObj = {};
 
-        // Helper to handle Array or String from query
-        const getSingleValue = (val) => Array.isArray(val) ? val[0] : val;
-
-        // 1. กรองตามหมวดหมู่
+        // 1. กรองตามหมวดหมู่หลัก (Category)
         if (req.query.category) {
-            queryObj.category = getSingleValue(req.query.category);
+            queryObj.category = req.query.category;
         }
 
-        // 2. กรองเฉพาะสินค้าที่มีในสต็อก
+        // 2. กรองเฉพาะสินค้าที่มีในสต็อก (In Stock)
         if (req.query.inStock === 'true') {
             queryObj.stock = { $gt: 0 };
         }
 
-        // 3. กรองตามช่วงราคา (Min - Max Price Input) - ป้องกัน NaN
+        // 3. ระบบค้นหาด้วยข้อความ (Search Keyword)
+        // ค้นหาครอบคลุมชื่อรุ่น, แบรนด์ และแท็ก
+        if (req.query.keyword) {
+            const keyword = req.query.keyword;
+            queryObj.$or = [
+                { modelName: { $regex: keyword, $options: 'i' } },
+                { brand: { $regex: keyword, $options: 'i' } },
+                { tags: { $regex: keyword, $options: 'i' } },
+                { description: { $regex: keyword, $options: 'i' } }
+            ];
+        }
+
+        // 4. กรองตามช่วงราคา (Price Range: minPrice, maxPrice)
         if (req.query.minPrice || req.query.maxPrice) {
             queryObj.price = {};
-            const minP = Number(getSingleValue(req.query.minPrice));
-            const maxP = Number(getSingleValue(req.query.maxPrice));
-            
+            const minP = Number(req.query.minPrice);
+            const maxP = Number(req.query.maxPrice);
+
             if (!isNaN(minP)) queryObj.price.$gte = minP;
             if (!isNaN(maxP)) queryObj.price.$lte = maxP;
-            
-            // ถ้าพังทั้งคู่ ลบ field price ออกจาก query
+
             if (Object.keys(queryObj.price).length === 0) delete queryObj.price;
         }
 
-        // 4. กรองตามคุณสมบัติพิเศษ (Specifications Map)
-        if (req.query.switchType) {
-            queryObj['specifications.switchType'] = getSingleValue(req.query.switchType);
-        }
-        if (req.query.layout) {
-            queryObj['specifications.layout'] = getSingleValue(req.query.layout);
-        }
+        // 5. 🌟 Dynamic Specifications Filter (ตัวกรองสเปกย่อยแบบอัตโนมัติ)
+        // รับพารามิเตอร์ที่นำหน้าด้วย "spec_" เช่น ?spec_RAM=16GB
+        Object.keys(req.query).forEach(key => {
+            if (key.startsWith('spec_')) {
+                const specName = key.replace('spec_', '');
+                const specValue = req.query[key];
 
-        // 5. ระบบแบ่งหน้า (Pagination) - ป้องกัน Skip ติดลบ
+                // ทำให้ค่าที่รับมาเป็น Array เสมอ เพื่อรองรับการเลือกหลายตัว (Multiple Checkboxes)
+                const valuesArray = Array.isArray(specValue) ? specValue : [specValue];
+
+                // ใช้ $in คู่กับ Regular Expression เพื่อให้ค้นหาแบบ Partial Match ได้
+                queryObj[`specifications.${specName}`] = {
+                    $in: valuesArray.map(val => new RegExp(val, 'i'))
+                };
+            }
+        });
+
+        // 6. ระบบแบ่งหน้า (Pagination)
         const page = Math.max(1, parseInt(req.query.page, 10) || 1);
         const limit = Math.max(1, parseInt(req.query.limit, 10) || 10);
         const skip = (page - 1) * limit;
 
-        // ค้นหาข้อมูลพร้อมใช้งาน Pagination และ Field Selection + .lean() เพื่อประหยัด RAM
+        // 7. ระบบเรียงลำดับ (Sorting)
+        let sortBy = '-createdAt'; // ค่าเริ่มต้น: ใหม่สุดไปเก่าสุด
+        if (req.query.sort === 'price_asc') sortBy = 'price';
+        if (req.query.sort === 'price_desc') sortBy = '-price';
+        if (req.query.sort === 'oldest') sortBy = 'createdAt';
+
+        // ค้นหาข้อมูลพร้อมใช้งาน Pagination และ Sorting
+        // นำ .select('-specifications') ออกตามแผน เพื่อให้ Frontend มีข้อมูลวาด UI
         const products = await Product.find(queryObj)
-            .select('-specifications')
+            .sort(sortBy)
             .skip(skip)
             .limit(limit)
             .lean();

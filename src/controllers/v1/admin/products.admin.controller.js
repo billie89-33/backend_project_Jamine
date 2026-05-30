@@ -21,7 +21,7 @@ export const createProduct = async (req, res, next) => {
             throw error;
         }
 
-        // 2. แปลงข้อมูล specifications (เพราะ multipart/form-data ส่งข้อมูล object มาเป็น string)
+        // 2. แปลงข้อมูล specifications และ tags (เพราะ multipart/form-data ส่งมาเป็น string)
         if (productData.specifications && typeof productData.specifications === 'string') {
             try {
                 productData.specifications = JSON.parse(productData.specifications);
@@ -34,6 +34,14 @@ export const createProduct = async (req, res, next) => {
                 error.status = 400;
                 throw error;
             }
+        }
+
+        // จัดการฟิลด์ tags (ถ้าส่งมาเป็น string เช่น "New, Wireless")
+        if (productData.tags && typeof productData.tags === 'string') {
+            productData.tags = productData.tags
+                .split(',')
+                .map(tag => tag.trim())
+                .filter(tag => tag !== '');
         }
 
         // 3. สร้างสินค้าลง Database
@@ -107,6 +115,14 @@ export const updateProduct = async (req, res, next) => {
                 updateData[`specifications.${key}`] = value;
             }
             delete updateData.specifications;
+        }
+
+        // จัดการฟิลด์ tags (ถ้าส่งมาเป็น string เช่น "New, Wireless")
+        if (updateData.tags && typeof updateData.tags === 'string') {
+            updateData.tags = updateData.tags
+                .split(',')
+                .map(tag => tag.trim())
+                .filter(tag => tag !== '');
         }
 
         // 4. อัปเดตข้อมูลลง Database

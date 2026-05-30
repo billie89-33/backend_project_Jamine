@@ -20,6 +20,11 @@ const productSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Please add a model name']
     },
+    description: {
+        type: String,
+        required: [true, 'Please add a product description'],
+        trim: true
+    },
     price: {
         type: Number,
         required: [true, 'Please add a price']
@@ -37,7 +42,12 @@ const productSchema = new mongoose.Schema({
     category: {
         type: String,
         required: [true, 'Please add a category'],
-        enum: ['Notebook', 'Keyboard', 'Computer', 'Monitor', 'Gaming Mouse'],
+        enum: ['Notebook', 'Keyboard', 'Computer', 'Monitor', 'Gaming Mouse', 'Graphics Card', 'RAM'],
+        index: true
+    },
+    tags: {
+        type: [String],
+        default: [],
         index: true
     },
     stock: {
