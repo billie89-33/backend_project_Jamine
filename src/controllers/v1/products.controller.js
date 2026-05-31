@@ -69,6 +69,7 @@ export const getProducts = async (req, res, next) => {
         if (req.query.sort === 'price_asc') sortBy = 'price';
         if (req.query.sort === 'price_desc') sortBy = '-price';
         if (req.query.sort === 'oldest') sortBy = 'createdAt';
+        if (req.query.sort === 'best_seller') sortBy = '-soldCount';
 
         // ค้นหาข้อมูลพร้อมใช้งาน Pagination และ Sorting
         // นำ .select('-specifications') ออกตามแผน เพื่อให้ Frontend มีข้อมูลวาด UI
@@ -98,7 +99,12 @@ export const getProducts = async (req, res, next) => {
 // @access  Public
 export const getProduct = async (req, res, next) => {
     try {
-        const product = await Product.findById(req.params.id).lean();
+        // 🌟 อัปเดตยอดวิว (viewCount) ทุกครั้งที่มีคนกดดูรายละเอียด
+        const product = await Product.findByIdAndUpdate(
+            req.params.id,
+            { $inc: { viewCount: 1 } },
+            { new: true }
+        ).lean();
 
         if (!product) {
             const error = new Error('Product not found');

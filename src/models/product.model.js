@@ -71,6 +71,16 @@ const productSchema = new mongoose.Schema({
         default: false,
         index: true
     },
+    soldCount: {
+        type: Number,
+        default: 0,
+        index: true
+    },
+    viewCount: {
+        type: Number,
+        default: 0,
+        index: true
+    },
     specifications: {
         type: Map,
         of: String,

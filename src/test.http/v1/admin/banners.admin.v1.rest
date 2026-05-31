@@ -1,0 +1,54 @@
+### Banner API Test (Admin)
+
+@baseUrl = http://localhost:4001/api/v1
+@adminToken = (ใส่ Admin Token ของคุณที่นี่)
+
+### 1. [Admin] Get all banners (including inactive)
+GET {{baseUrl}}/admin/banners
+Authorization: Bearer {{adminToken}}
+
+### 2. [Admin] Create new banner (Home Hero)
+POST {{baseUrl}}/admin/banners
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="title"
+
+New Year Sale 2024
+--boundary
+Content-Disposition: form-data; name="linkUrl"
+
+/category/Notebook
+--boundary
+Content-Disposition: form-data; name="placement"
+
+home_hero
+--boundary
+Content-Disposition: form-data; name="order"
+
+1
+--boundary
+Content-Disposition: form-data; name="isActive"
+
+true
+--boundary
+Content-Disposition: form-data; name="image"; filename="hero.png"
+Content-Type: image/png
+
+< ../../test.http/test-images/product-sample-1.png
+--boundary--
+
+### 3. [Admin] Update banner (Partial - Change title only)
+# แก้ไขเฉพาะชื่อ โดยไม่ส่งรูปภาพ (รูปเดิมต้องยังอยู่)
+PATCH {{baseUrl}}/admin/banners/{{banner_id_here}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+    "title": "Extended Summer Sale"
+}
+
+### 4. [Admin] Delete banner
+DELETE {{baseUrl}}/admin/banners/{{banner_id_here}}
+Authorization: Bearer {{adminToken}}

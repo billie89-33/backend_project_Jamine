@@ -103,7 +103,8 @@ export const createOrder = async (req, res, next) => {
         }
 
         const productIds = cart.items.map(item => item.productId);
-        const products = await Product.find({ _id: { $in: productIds } }).lean();
+        // ดึงเฉพาะสินค้าที่ Active เท่านั้น
+        const products = await Product.find({ _id: { $in: productIds }, status: 'active' }).lean();
         const productMap = new Map(products.map(p => [p._id.toString(), p]));
 
         const orderItems = [];
@@ -116,17 +117,17 @@ export const createOrder = async (req, res, next) => {
                 const product = productMap.get(prodIdStr);
 
                 if (!product) {
-                    throw new Error(`ไม่พบข้อมูลสินค้า (ID: ${prodIdStr}) อาจถูกลบไปแล้ว`);
+                    throw new Error(`สินค้าบางรายการ (ID: ${prodIdStr}) ไม่พร้อมจำหน่ายในขณะนี้ หรือถูกซ่อนไปแล้ว`);
                 }
 
                 const updatedProduct = await Product.findOneAndUpdate(
-                    { _id: product._id, stock: { $gte: cartItem.quantity } },
+                    { _id: product._id, stock: { $gte: cartItem.quantity }, status: 'active' }, // 🔒 ล็อกเงื่อนไขสต็อกและสถานะ
                     { $inc: { stock: -cartItem.quantity } },
                     { new: true }
                 ).select('_id').lean();
 
                 if (!updatedProduct) {
-                    throw new Error(`สินค้า "${product.modelName}" ในคลังมีไม่เพียงพอ (อาจถูกซื้อตัดหน้าไปแล้ว)`);
+                    throw new Error(`สินค้า "${product.modelName}" ในคลังมีไม่เพียงพอ หรือสถานะสินค้ามีการเปลี่ยนแปลง`);
                 }
 
                 reservedItems.push(cartItem);
@@ -274,9 +275,21 @@ export const mockPayment = async (req, res, next) => {
 
         await order.save();
 
+        // 🌟 BEST SELLER LOGIC: อัปเดตยอดขาย (soldCount) เมื่อชำระเงินสำเร็จ
+        const bulkSoldOps = order.items.map(item => ({
+            updateOne: {
+                filter: { _id: item.productId },
+                update: { $inc: { soldCount: item.quantity } }
+            }
+        }));
+
+        if (bulkSoldOps.length > 0) {
+            await Product.bulkWrite(bulkSoldOps);
+        }
+
         res.status(200).json({
             success: true,
-            message: 'ชำระเงินสำเร็จ!',
+            message: 'ชำระเงินสำเร็จ! ยอดขายถูกบันทึกแล้ว',
             data: order
         });
     } catch (error) {

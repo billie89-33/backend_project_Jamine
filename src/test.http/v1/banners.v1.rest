@@ -1,0 +1,15 @@
+### Banner API Test (Public)
+
+@baseUrl = http://localhost:4001/api/v1
+
+### 1. Get all active banners (Default)
+GET {{baseUrl}}/banners
+Content-Type: application/json
+
+### 2. Get active banners by placement (home_hero)
+GET {{baseUrl}}/banners?placement=home_hero
+Content-Type: application/json
+
+### 3. Get active banners by placement (promotion_bar)
+GET {{baseUrl}}/banners?placement=promotion_bar
+Content-Type: application/json
