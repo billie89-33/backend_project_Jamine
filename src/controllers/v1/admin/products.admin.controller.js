@@ -8,55 +8,32 @@ export const createProduct = async (req, res, next) => {
     try {
         const productData = { ...req.body };
 
-        // 1. จัดการรูปภาพที่ Multer อัปโหลดไว้ให้ชั่วคราว (Single-step Upload)
+        // 1. Image handling (Multer)
         if (req.file) {
             productData.image = {
                 url: req.file.path,
                 publicId: req.file.filename
             };
         } else {
-            // กรณีไม่ได้ส่งรูปมา (Schema บังคับ แต่ดักไว้ก่อนเพื่อให้ Error ชัดเจน)
             const error = new Error('Please upload a product image');
             error.status = 400;
             throw error;
         }
 
-        // 2. แปลงข้อมูล specifications และ tags (เพราะ multipart/form-data ส่งมาเป็น string)
-        if (productData.specifications && typeof productData.specifications === 'string') {
-            try {
-                productData.specifications = JSON.parse(productData.specifications);
-            } catch (err) {
-                // ถ้า JSON Parse พัง ต้องลบรูปที่อัปโหลดไปแล้วทิ้งทันที (Cleanup)
-                if (req.file && req.file.filename) {
-                    await cloudinary.uploader.destroy(req.file.filename);
-                }
-                const error = new Error('Invalid format for specifications. Must be a valid JSON string.');
-                error.status = 400;
-                throw error;
-            }
+        // 2. Specifications handling (Safe Parse)
+        if (typeof productData.specifications === 'string') {
+            productData.specifications = JSON.parse(productData.specifications);
         }
 
-        // จัดการฟิลด์ tags (ถ้าส่งมาเป็น string เช่น "New, Wireless")
+        // 3. Tags handling
         if (productData.tags && typeof productData.tags === 'string') {
-            productData.tags = productData.tags
-                .split(',')
-                .map(tag => tag.trim())
-                .filter(tag => tag !== '');
+            productData.tags = productData.tags.split(',').map(tag => tag.trim()).filter(Boolean);
         }
 
-        // 3. สร้างสินค้าลง Database
         const product = await Product.create(productData);
-
-        res.status(201).json({
-            success: true,
-            data: product
-        });
+        res.status(201).json({ success: true, data: product });
     } catch (error) {
-        // 🔥 ATOMIC CLEANUP: หากเกิด Error ใดๆ ในขั้นตอนนี้ (เช่น SKU ซ้ำ, Validation พัง)
-        // ต้องลบรูปที่ค้างบน Cloudinary ทิ้งทันทีเพื่อป้องกัน Storage Leak
-        if (req.file && req.file.filename) {
-            await cloudinary.uploader.destroy(req.file.filename);
-        }
+        if (req.file) await cloudinary.uploader.destroy(req.file.filename);
         next(error);
     }
 };
@@ -69,7 +46,6 @@ export const updateProduct = async (req, res, next) => {
         const updateData = { ...req.body };
         const productId = req.params.id;
 
-        // 1. ดึงข้อมูลสินค้าเดิมมาตรวจสอบ (จำเป็นต้องมีเพื่อจัดการรูปภาพ)
         const existingProduct = await Product.findById(productId);
         if (!existingProduct) {
             const error = new Error('Product not found');
@@ -77,73 +53,50 @@ export const updateProduct = async (req, res, next) => {
             throw error;
         }
 
-        // 2. จัดการรูปภาพใหม่ (ถ้ามีการอัปโหลดผ่าน Single-step)
+        // 1. Image Update Logic
         if (req.file) {
-            // ลบรูปเก่าใน Cloudinary ทันที
-            if (existingProduct.image && existingProduct.image.publicId) {
+            if (existingProduct.image?.publicId) {
                 await cloudinary.uploader.destroy(existingProduct.image.publicId);
             }
-            // ใส่ข้อมูลรูปใหม่ลงใน updateData
-            updateData.image = {
-                url: req.file.path,
-                publicId: req.file.filename
-            };
-        } else if (updateData.image && typeof updateData.image === 'object' && updateData.image.publicId) {
-            // กรณีส่งข้อมูลรูปภาพมาแบบ JSON (Two-step fallback หรือการแก้ไข field อื่นใน image)
-            if (existingProduct.image && existingProduct.image.publicId !== updateData.image.publicId) {
-                await cloudinary.uploader.destroy(existingProduct.image.publicId);
-            }
+            updateData.image = { url: req.file.path, publicId: req.file.filename };
         }
 
-        // 3. แปลงข้อมูล specifications (Handle ทั้งแบบ JSON object และ JSON string จาก Form-data)
-        let specs = updateData.specifications;
-        if (specs && typeof specs === 'string') {
-            try {
-                specs = JSON.parse(specs);
-            } catch (err) {
-                // ถ้า Parse พัง และเพิ่งอัปรูปไป ต้องลบรูปใหม่ทิ้งด้วย
-                if (req.file) await cloudinary.uploader.destroy(req.file.filename);
-                const error = new Error('Invalid format for specifications. Must be a valid JSON string.');
-                error.status = 400;
-                throw error;
-            }
-        }
+        // 2. Specifications Dynamic Handling ($set and $unset)
+        const unsetObj = {};
+        if (updateData.specifications) {
+            let specs = updateData.specifications;
+            if (typeof specs === 'string') specs = JSON.parse(specs);
 
-        // แปลง specifications ให้อยู่ในรูป Dot Notation เพื่อทำ Partial Update (ตามกฎ Agent.md)
-        if (specs && typeof specs === 'object') {
             for (const [key, value] of Object.entries(specs)) {
-                updateData[`specifications.${key}`] = value;
+                if (value === null || value === '') {
+                    // หากส่งค่าว่างมา ให้เตรียมลบ Key นั้นออกจาก Map ใน DB
+                    unsetObj[`specifications.${key}`] = 1;
+                } else {
+                    // หากมีค่า ให้ใช้ Dot Notation เพื่อแก้เฉพาะ Key ย่อย
+                    updateData[`specifications.${key}`] = String(value);
+                }
             }
-            delete updateData.specifications;
+            delete updateData.specifications; // ลบตัวเดิมออกเพื่อไม่ให้ไปทับทั้ง Map
         }
 
-        // จัดการฟิลด์ tags (ถ้าส่งมาเป็น string เช่น "New, Wireless")
+        // 3. Tags handling
         if (updateData.tags && typeof updateData.tags === 'string') {
-            updateData.tags = updateData.tags
-                .split(',')
-                .map(tag => tag.trim())
-                .filter(tag => tag !== '');
+            updateData.tags = updateData.tags.split(',').map(tag => tag.trim()).filter(Boolean);
         }
 
-        // 4. อัปเดตข้อมูลลง Database
+        // 4. Update with both $set and $unset
         const product = await Product.findByIdAndUpdate(
             productId,
-            { $set: updateData },
-            {
-                new: true,
-                runValidators: true
-            }
+            { 
+                $set: updateData,
+                ...(Object.keys(unsetObj).length > 0 && { $unset: unsetObj })
+            },
+            { new: true, runValidators: true }
         );
 
-        res.status(200).json({
-            success: true,
-            data: product
-        });
+        res.status(200).json({ success: true, data: product });
     } catch (error) {
-        // 🔥 หากเกิด Error และมีการอัปโหลดรูปใหม่ไปแล้ว ให้ลบรูปใหม่ทิ้งเพื่อกันขยะ
-        if (req.file && req.file.filename) {
-            await cloudinary.uploader.destroy(req.file.filename);
-        }
+        if (req.file) await cloudinary.uploader.destroy(req.file.filename);
         next(error);
     }
 };

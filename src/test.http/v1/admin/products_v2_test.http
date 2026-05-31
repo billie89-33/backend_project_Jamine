@@ -1,0 +1,66 @@
+### Product API Test (Refactored v2)
+
+@baseUrl = http://localhost:4001/api/v1
+@adminToken = (ใส่ Token ของคุณที่นี่)
+
+### 1. [Public] ค้นหาและกรองสินค้า (พร้อม Validation)
+# ทดสอบ minPrice ติดลบ (ควร Error 400)
+GET {{baseUrl}}/products?minPrice=-100
+Content-Type: application/json
+
+### 2. [Admin] สร้างสินค้าใหม่ (Notebook)
+POST {{baseUrl}}/admin/products
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="brand"
+
+MSI
+--boundary
+Content-Disposition: form-data; name="modelName"
+
+Katana GF66
+--boundary
+Content-Disposition: form-data; name="price"
+
+35000
+--boundary
+Content-Disposition: form-data; name="category"
+
+Notebook
+--boundary
+Content-Disposition: form-data; name="stock"
+
+10
+--boundary
+Content-Disposition: form-data; name="sku"
+
+MSI-KATANA-001
+--boundary
+Content-Disposition: form-data; name="description"
+
+Gaming laptop with RTX 3050
+--boundary
+Content-Disposition: form-data; name="specifications"
+
+{"CPU": "Intel i7", "RAM": "16GB", "Storage": "512GB SSD"}
+--boundary
+Content-Disposition: form-data; name="image"; filename="product.png"
+Content-Type: image/png
+
+< ./test-images/product-sample-1.png
+--boundary--
+
+### 3. [Admin] อัปเดตสินค้าแบบบางส่วน (PATCH)
+# แก้ไข RAM และ ลบฟิลด์ Storage ทิ้ง
+PATCH {{baseUrl}}/admin/products/{{product_id_here}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+    "specifications": {
+        "RAM": "32GB",
+        "Storage": ""
+    }
+}
