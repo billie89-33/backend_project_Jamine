@@ -98,6 +98,14 @@ export const queryValidationMiddleware = (req, res, next) => {
     if (page && (isNaN(Number(page)) || Number(page) < 1)) errors.push('page must be at least 1');
     if (limit && (isNaN(Number(limit)) || Number(limit) < 1)) errors.push('limit must be at least 1');
 
+    if (errors.length > 0) {
+        const error = new Error(errors.join(', '));
+        error.status = 400;
+        return next(error);
+    }
+    next();
+};
+
 /**
  * Middleware for Cart Validation (POST / PATCH)
  */
