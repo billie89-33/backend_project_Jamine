@@ -249,7 +249,9 @@ src/
 3.  **Flexible Address Resolution**: ระบบเลือกที่อยู่อัตโนมัติที่ฉลาด (Manual > Saved ID > Default) ช่วยลดขั้นตอนการสั่งซื้อ (Friction) และเพิ่มโอกาสในการปิดการขาย
 4.  **Transactional Integrity**: มีระบบ Rollback สต็อกสินค้าทันทีหากเกิดข้อผิดพลาดในขั้นตอนสร้างออเดอร์ หรือเมื่อตรวจพบว่าราคาสินค้ามีการเปลี่ยนแปลง (Price Verification)
 5.  **Administrative Audit Trail**: บันทึกหลักฐานการชำระเงินและรหัสธุรกรรม (Payment Evidence) ทุกครั้ง เพื่อความโปร่งใสและการตรวจสอบย้อนกลับโดย Admin
-5.  **Performance Optimization**: ใช้ Bulk Write สำหรับงานจำนวนมาก, Pagination สำหรับรายการสินค้า และ Field Selection เพื่อลดขนาด Payload ของ API
+6.  **Cascading Visibility & Status Defense**: ระบบต้องมีการตรวจสอบสถานะสินค้า (`active`, `inactive`, `draft`) ในทุก Layer (1. Public List 2. Cart 3. Checkout) เพื่อป้องกันการสั่งซื้อสินค้าที่ถูกปิดการขาย (Shadow Selection Protection)
+7.  **Auto-Sales & Popularity Tracking**: ระบบต้องอัปเดตยอดขายสะสม (`soldCount`) อัตโนมัติเมื่อออเดอร์เป็น `Paid` และยอดเข้าชม (`viewCount`) เมื่อดึงข้อมูลรายละเอียดสินค้า เพื่อใช้ในระบบสินค้าขายดี (Best Seller Sorting)
+8.  **Performance Optimization**: ใช้ Bulk Write สำหรับงานจำนวนมาก, Pagination สำหรับรายการสินค้า และ Field Selection เพื่อลดขนาด Payload ของ API
 
 ---
 
