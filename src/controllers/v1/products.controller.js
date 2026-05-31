@@ -5,20 +5,25 @@ import Product from '../../models/product.model.js';
 // @access  Public
 export const getProducts = async (req, res, next) => {
     try {
-        const queryObj = {};
+        // 1. กรองเฉพาะสินค้าที่สถานะเป็น 'active' เท่านั้น (Public)
+        const queryObj = { status: 'active' };
 
-        // 1. กรองตามหมวดหมู่หลัก (Category)
+        // 2. กรองตามหมวดหมู่หลัก (Category)
         if (req.query.category) {
             queryObj.category = req.query.category;
         }
 
-        // 2. กรองเฉพาะสินค้าที่มีในสต็อก (In Stock)
+        // 3. กรองสินค้าแนะนำ (isFeatured)
+        if (req.query.isFeatured) {
+            queryObj.isFeatured = req.query.isFeatured === 'true';
+        }
+
+        // 4. กรองเฉพาะสินค้าที่มีในสต็อก (In Stock)
         if (req.query.inStock === 'true') {
             queryObj.stock = { $gt: 0 };
         }
 
-        // 3. ระบบค้นหาด้วยข้อความ (Search Keyword)
-        // ค้นหาครอบคลุมชื่อรุ่น, แบรนด์ และแท็ก
+        // 5. ระบบค้นหาด้วยข้อความ (Search Keyword)
         if (req.query.keyword) {
             const keyword = req.query.keyword;
             queryObj.$or = [
@@ -29,7 +34,7 @@ export const getProducts = async (req, res, next) => {
             ];
         }
 
-        // 4. กรองตามช่วงราคา (Price Range: minPrice, maxPrice)
+        // 6. กรองตามช่วงราคา (Price Range: minPrice, maxPrice)
         if (req.query.minPrice || req.query.maxPrice) {
             queryObj.price = {};
             const minP = Number(req.query.minPrice);
@@ -41,17 +46,13 @@ export const getProducts = async (req, res, next) => {
             if (Object.keys(queryObj.price).length === 0) delete queryObj.price;
         }
 
-        // 5. 🌟 Dynamic Specifications Filter (ตัวกรองสเปกย่อยแบบอัตโนมัติ)
-        // รับพารามิเตอร์ที่นำหน้าด้วย "spec_" เช่น ?spec_RAM=16GB
+        // 7. 🌟 Dynamic Specifications Filter
         Object.keys(req.query).forEach(key => {
             if (key.startsWith('spec_')) {
                 const specName = key.replace('spec_', '');
                 const specValue = req.query[key];
-
-                // ทำให้ค่าที่รับมาเป็น Array เสมอ เพื่อรองรับการเลือกหลายตัว (Multiple Checkboxes)
                 const valuesArray = Array.isArray(specValue) ? specValue : [specValue];
 
-                // ใช้ $in คู่กับ Regular Expression เพื่อให้ค้นหาแบบ Partial Match ได้
                 queryObj[`specifications.${specName}`] = {
                     $in: valuesArray.map(val => new RegExp(val, 'i'))
                 };

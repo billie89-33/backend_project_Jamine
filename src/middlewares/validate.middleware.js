@@ -6,6 +6,7 @@ import cloudinary from '../config/cloudinary.js';
 export const validateProduct = (data, isUpdate = false) => {
     const errors = [];
     const categories = ['Notebook', 'Keyboard', 'Computer', 'Monitor', 'Gaming Mouse', 'Graphics Card', 'RAM', 'CPU', 'Mainboard'];
+    const statuses = ['active', 'inactive', 'draft'];
 
     if (!isUpdate) {
         if (!data.brand) errors.push('Brand is required');
@@ -26,6 +27,14 @@ export const validateProduct = (data, isUpdate = false) => {
 
     if (data.category && !categories.includes(data.category)) {
         errors.push(`Invalid category. Must be one of: ${categories.join(', ')}`);
+    }
+
+    if (data.status && !statuses.includes(data.status)) {
+        errors.push(`Invalid status. Must be one of: ${statuses.join(', ')}`);
+    }
+
+    if (data.isFeatured !== undefined && typeof data.isFeatured !== 'boolean' && data.isFeatured !== 'true' && data.isFeatured !== 'false') {
+        errors.push('isFeatured must be a boolean');
     }
 
     // Specification Validation: Must be a flat object of strings
@@ -89,10 +98,30 @@ export const queryValidationMiddleware = (req, res, next) => {
     if (page && (isNaN(Number(page)) || Number(page) < 1)) errors.push('page must be at least 1');
     if (limit && (isNaN(Number(limit)) || Number(limit) < 1)) errors.push('limit must be at least 1');
 
+/**
+ * Middleware for Cart Validation (POST / PATCH)
+ */
+export const cartValidationMiddleware = (req, res, next) => {
+    const { productId, quantity } = req.body;
+    const errors = [];
+
+    if (!productId) {
+        errors.push('Product ID is required');
+    } else if (typeof productId !== 'string' || productId.trim() === '') {
+        errors.push('Invalid Product ID format');
+    }
+
+    if (quantity === undefined) {
+        errors.push('Quantity is required');
+    } else if (isNaN(Number(quantity)) || Number(quantity) < 1) {
+        errors.push('Quantity must be a number greater than or equal to 1');
+    }
+
     if (errors.length > 0) {
         const error = new Error(errors.join(', '));
         error.status = 400;
         return next(error);
     }
+
     next();
 };

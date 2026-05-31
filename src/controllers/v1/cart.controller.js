@@ -3,7 +3,7 @@ import Product from '../../models/product.model.js';
 
 /**
  * @desc    Helper function to calculate cart totals based on DB prices
- *          AND Validate/Adjust quantities against real-time stock
+ *          AND Validate/Adjust quantities against real-time stock and status
  */
 const validateAndCalculateCart = async (items, autoAdjust = false) => {
     let subtotal = 0;
@@ -11,13 +11,15 @@ const validateAndCalculateCart = async (items, autoAdjust = false) => {
     const validatedItems = [];
 
     const productIds = items.map(item => item.productId._id || item.productId);
-    const products = await Product.find({ _id: { $in: productIds } }).lean();
+    // ดึงข้อมูลสินค้าเฉพาะที่ active เท่านั้น (ถ้า inactive หรือ draft จะไม่ถูกดึงมา)
+    const products = await Product.find({ _id: { $in: productIds }, status: 'active' }).lean();
     const productMap = new Map(products.map(p => [p._id.toString(), p]));
 
     for (const item of items) {
         const prodId = (item.productId._id || item.productId).toString();
         const product = productMap.get(prodId);
         
+        // ถ้า product ไม่มี (อาจจะโดนลบ หรือถูกปรับเป็น inactive/draft)
         if (product) {
             let finalQuantity = item.quantity;
             let stockStatus = 'available';
@@ -48,6 +50,9 @@ const validateAndCalculateCart = async (items, autoAdjust = false) => {
                     availableStock: product.stock
                 });
             }
+        } else {
+            // สินค้าหายไปจากระบบ (ลบ/ซ่อน) ตะกร้าจะปรับตัวอัตโนมัติ (ไม่เอาใส่ validatedItems)
+            isAdjusted = true;
         }
     }
 
@@ -82,7 +87,10 @@ export const getCart = async (req, res, next) => {
         cart.total = validation.total;
 
         await cart.save();
-        await cart.populate('items.productId');
+        await cart.populate({
+            path: 'items.productId',
+            select: 'modelName price image stock status'
+        });
 
         res.status(200).json({
             success: true,
@@ -143,7 +151,10 @@ export const addToCart = async (req, res, next) => {
         cart.total = validation.total;
 
         await cart.save();
-        await cart.populate('items.productId');
+        await cart.populate({
+            path: 'items.productId',
+            select: 'modelName price image stock status'
+        });
 
         res.status(200).json({
             success: true,
@@ -193,7 +204,10 @@ export const updateCartQuantity = async (req, res, next) => {
         cart.total = validation.total;
 
         await cart.save();
-        await cart.populate('items.productId');
+        await cart.populate({
+            path: 'items.productId',
+            select: 'modelName price image stock status'
+        });
 
         res.status(200).json({
             success: true,
@@ -232,7 +246,10 @@ export const removeFromCart = async (req, res, next) => {
         cart.total = validation.total;
 
         await cart.save();
-        await cart.populate('items.productId');
+        await cart.populate({
+            path: 'items.productId',
+            select: 'modelName price image stock status'
+        });
 
         res.status(200).json({
             success: true,

@@ -56,6 +56,21 @@ const productSchema = new mongoose.Schema({
         min: [0, 'Stock cannot be negative'],
         default: 0
     },
+    status: {
+        type: String,
+        required: [true, 'Please add product status'],
+        enum: {
+            values: ['active', 'inactive', 'draft'],
+            message: 'Status must be active, inactive, or draft'
+        },
+        default: 'active',
+        index: true
+    },
+    isFeatured: {
+        type: Boolean,
+        default: false,
+        index: true
+    },
     specifications: {
         type: Map,
         of: String,

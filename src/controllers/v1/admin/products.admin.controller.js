@@ -1,6 +1,51 @@
 import Product from '../../../models/product.model.js';
 import cloudinary from '../../../config/cloudinary.js';
 
+// @desc    Get all products (Admin version - sees all statuses)
+// @route   GET /api/v1/admin/products
+// @access  Private (Admin only)
+export const getAdminProducts = async (req, res, next) => {
+    try {
+        const queryObj = {};
+
+        // Admin can filter by any status
+        if (req.query.status) queryObj.status = req.query.status;
+        if (req.query.category) queryObj.category = req.query.category;
+        if (req.query.isFeatured) queryObj.isFeatured = req.query.isFeatured === 'true';
+
+        if (req.query.keyword) {
+            const regex = { $regex: req.query.keyword, $options: 'i' };
+            queryObj.$or = [
+                { modelName: regex },
+                { brand: regex },
+                { sku: regex }
+            ];
+        }
+
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 12;
+        const skip = (page - 1) * limit;
+
+        const products = await Product.find(queryObj)
+            .sort('-createdAt')
+            .skip(skip)
+            .limit(limit)
+            .lean();
+
+        const total = await Product.countDocuments(queryObj);
+
+        res.status(200).json({
+            success: true,
+            total,
+            page,
+            totalPages: Math.ceil(total / limit),
+            data: products
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 // @desc    Create new product
 // @route   POST /api/v1/admin/products
 // @access  Private (Admin only)
@@ -25,9 +70,19 @@ export const createProduct = async (req, res, next) => {
             productData.specifications = JSON.parse(productData.specifications);
         }
 
-        // 3. Tags handling
+        // 3. Tags handling (Safe Parse)
         if (productData.tags && typeof productData.tags === 'string') {
-            productData.tags = productData.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+            try {
+                const parsedTags = JSON.parse(productData.tags);
+                productData.tags = Array.isArray(parsedTags) ? parsedTags : [parsedTags];
+            } catch (e) {
+                productData.tags = productData.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+            }
+        }
+
+        // 4. Handle Boolean fields from FormData
+        if (productData.isFeatured !== undefined) {
+            productData.isFeatured = productData.isFeatured === 'true' || productData.isFeatured === true;
         }
 
         const product = await Product.create(productData);
@@ -69,22 +124,30 @@ export const updateProduct = async (req, res, next) => {
 
             for (const [key, value] of Object.entries(specs)) {
                 if (value === null || value === '') {
-                    // หากส่งค่าว่างมา ให้เตรียมลบ Key นั้นออกจาก Map ใน DB
                     unsetObj[`specifications.${key}`] = 1;
                 } else {
-                    // หากมีค่า ให้ใช้ Dot Notation เพื่อแก้เฉพาะ Key ย่อย
                     updateData[`specifications.${key}`] = String(value);
                 }
             }
-            delete updateData.specifications; // ลบตัวเดิมออกเพื่อไม่ให้ไปทับทั้ง Map
+            delete updateData.specifications;
         }
 
-        // 3. Tags handling
+        // 3. Tags handling (Safe Parse)
         if (updateData.tags && typeof updateData.tags === 'string') {
-            updateData.tags = updateData.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+            try {
+                const parsedTags = JSON.parse(updateData.tags);
+                updateData.tags = Array.isArray(parsedTags) ? parsedTags : [parsedTags];
+            } catch (e) {
+                updateData.tags = updateData.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+            }
         }
 
-        // 4. Update with both $set and $unset
+        // 4. Handle Boolean fields from FormData
+        if (updateData.isFeatured !== undefined) {
+            updateData.isFeatured = updateData.isFeatured === 'true' || updateData.isFeatured === true;
+        }
+
+        // 5. Update with both $set and $unset
         const product = await Product.findByIdAndUpdate(
             productId,
             { 
@@ -114,12 +177,10 @@ export const deleteProduct = async (req, res, next) => {
             return next(error);
         }
 
-        // 1. ลบรูปภาพออกจาก Cloudinary ทันที (Storage Leak Fix)
         if (product.image && product.image.publicId) {
             await cloudinary.uploader.destroy(product.image.publicId);
         }
 
-        // 2. ลบข้อมูลใน Database
         await product.deleteOne();
 
         res.status(200).json({

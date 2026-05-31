@@ -8,6 +8,7 @@ import {
 } from '../../controllers/v1/cart.controller.js';
 import { protect } from '../../middlewares/auth.middleware.js';
 import { validateMongoId } from '../../middlewares/validateId.middleware.js';
+import { cartValidationMiddleware } from '../../middlewares/validate.middleware.js';
 
 const router = express.Router();
 
@@ -21,10 +22,10 @@ router.use(protect);
 // --- 1. Static Routes (ต้องวางไว้ด้านบน) ---
 router.get('/', getCart);
 router.get('/summary', getCartSummary); // ย้ายขึ้นมาไว้ก่อน dynamic parameter
-router.patch('/update-quantity', updateCartQuantity);
+router.patch('/update-quantity', cartValidationMiddleware, updateCartQuantity);
 
 // --- 2. Dynamic Routes (ต้องวางไว้ด้านล่าง) ---
-router.post('/', addToCart);
+router.post('/', cartValidationMiddleware, addToCart);
 router.delete('/:productId', validateMongoId, removeFromCart);
 
 export default router;
