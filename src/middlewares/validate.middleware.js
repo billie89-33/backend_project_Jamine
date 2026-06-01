@@ -66,6 +66,16 @@ export const validateProduct = (data, isUpdate = false) => {
  * Middleware for Product POST/PATCH/PUT
  */
 export const productValidationMiddleware = async (req, res, next) => {
+    // 1. Pre-validation Sanitization (Handle FormData quirks like commas and strings)
+    if (req.body.price !== undefined) {
+        req.body.price = String(req.body.price).replace(/,/g, '');
+    }
+    if (req.body.stock !== undefined) {
+        req.body.stock = String(req.body.stock).replace(/,/g, '');
+    }
+    if (req.body.isFeatured === 'true') req.body.isFeatured = true;
+    if (req.body.isFeatured === 'false') req.body.isFeatured = false;
+
     const isUpdate = req.method === 'PATCH' || req.method === 'PUT';
     const { isValid, errors } = validateProduct(req.body, isUpdate);
 

@@ -37,7 +37,7 @@ export const getAdminProducts = async (req, res, next) => {
         res.status(200).json({
             success: true,
             total,
-            page,
+            currentPage: page,
             totalPages: Math.ceil(total / limit),
             data: products
         });
@@ -80,7 +80,9 @@ export const createProduct = async (req, res, next) => {
             }
         }
 
-        // 4. Handle Boolean fields from FormData
+        // 4. Data Normalization (Final casting before DB)
+        if (productData.price !== undefined) productData.price = Number(productData.price);
+        if (productData.stock !== undefined) productData.stock = Number(productData.stock);
         if (productData.isFeatured !== undefined) {
             productData.isFeatured = productData.isFeatured === 'true' || productData.isFeatured === true;
         }
@@ -142,7 +144,9 @@ export const updateProduct = async (req, res, next) => {
             }
         }
 
-        // 4. Handle Boolean fields from FormData
+        // 4. Data Normalization (Final casting before DB)
+        if (updateData.price !== undefined) updateData.price = Number(updateData.price);
+        if (updateData.stock !== undefined) updateData.stock = Number(updateData.stock);
         if (updateData.isFeatured !== undefined) {
             updateData.isFeatured = updateData.isFeatured === 'true' || updateData.isFeatured === true;
         }

@@ -1,0 +1,35 @@
+@baseUrl = http://localhost:4001/api/v1
+
+### 1. Login as Admin
+# @name adminLogin
+POST {{baseUrl}}/users/login
+Content-Type: application/json
+
+{
+    "email": "admin@example.com",
+    "password": "password123"
+}
+
+### 2. Get Dashboard All (Combined Data)
+GET {{baseUrl}}/admin/dashboard/all
+Cookie: token={{adminLogin.response.headers.set-cookie}}
+
+### 3. Get Dashboard Summary
+GET {{baseUrl}}/admin/dashboard/summary?period=month
+Cookie: token={{adminLogin.response.headers.set-cookie}}
+
+### 4. Get Revenue Chart
+GET {{baseUrl}}/admin/dashboard/revenue-chart?period=month
+Cookie: token={{adminLogin.response.headers.set-cookie}}
+
+### 5. Get Category Sales
+GET {{baseUrl}}/admin/dashboard/category-sales?period=year
+Cookie: token={{adminLogin.response.headers.set-cookie}}
+
+### 6. Get Recent Orders
+GET {{baseUrl}}/admin/dashboard/recent-orders?limit=3
+Cookie: token={{adminLogin.response.headers.set-cookie}}
+
+### 7. Get Top Products
+GET {{baseUrl}}/admin/dashboard/top-products?limit=3
+Cookie: token={{adminLogin.response.headers.set-cookie}}
