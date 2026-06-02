@@ -1,7 +1,6 @@
 import Order from '../../../models/order.model.js';
 import Product from '../../../models/product.model.js';
 import User from '../../../models/user.model.js';
-import mongoose from 'mongoose';
 
 /**
  * @desc    Get dashboard summary statistics
@@ -10,23 +9,23 @@ import mongoose from 'mongoose';
 export const getDashboardSummary = async (req, res, next) => {
     try {
         const { period = 'month' } = req.query;
-        
+
         // Calculate date range for current and previous period
         const now = new Date();
         let startDate;
         let prevStartDate;
 
         if (period === 'today') {
-            startDate = new Date(now.setHours(0, 0, 0, 0));
+            startDate = new Date(new Date(now).setHours(0, 0, 0, 0));
             prevStartDate = new Date(new Date(startDate).setDate(startDate.getDate() - 1));
         } else if (period === 'week') {
-            startDate = new Date(now.setDate(now.getDate() - 7));
+            startDate = new Date(new Date(now).setDate(now.getDate() - 7));
             prevStartDate = new Date(new Date(startDate).setDate(startDate.getDate() - 7));
         } else if (period === 'year') {
-            startDate = new Date(now.setFullYear(now.getFullYear() - 1));
+            startDate = new Date(new Date(now).setFullYear(now.getFullYear() - 1));
             prevStartDate = new Date(new Date(startDate).setFullYear(startDate.getFullYear() - 1));
         } else { // default to month
-            startDate = new Date(now.setMonth(now.getMonth() - 1));
+            startDate = new Date(new Date(now).setMonth(now.getMonth() - 1));
             prevStartDate = new Date(new Date(startDate).setMonth(startDate.getMonth() - 1));
         }
 
@@ -122,6 +121,119 @@ export const getDashboardSummary = async (req, res, next) => {
 };
 
 /**
+ * @desc    Get products with low stock
+ * @route   GET /api/v1/admin/dashboard/low-stock
+ */
+export const getLowStockProducts = async (req, res, next) => {
+    try {
+        const threshold = parseInt(req.query.threshold, 10) || 5;
+        const products = await Product.find({ 
+            stock: { $lt: threshold },
+            status: 'active' 
+        })
+        .sort('stock')
+        .limit(10)
+        .lean();
+
+        const formatted = products.map(p => ({
+            _id: p._id,
+            name: p.modelName,
+            brand: p.brand,
+            stock: p.stock,
+            image: p.image?.url
+        }));
+
+        if (res) {
+            res.status(200).json({ success: true, data: formatted });
+        } else {
+            return formatted;
+        }
+    } catch (error) {
+        if (next) next(error);
+        else throw error;
+    }
+};
+
+/**
+ * @desc    Get order status distribution
+ * @route   GET /api/v1/admin/dashboard/order-status
+ */
+export const getOrderStatusDistribution = async (req, res, next) => {
+    try {
+        const stats = await Order.aggregate([
+            {
+                $group: {
+                    _id: '$status',
+                    count: { $sum: 1 }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    status: '$_id',
+                    count: 1
+                }
+            }
+        ]);
+
+        if (res) {
+            res.status(200).json({ success: true, data: stats });
+        } else {
+            return stats;
+        }
+    } catch (error) {
+        if (next) next(error);
+        else throw error;
+    }
+};
+
+/**
+ * @desc    Get user growth over time
+ * @route   GET /api/v1/admin/dashboard/user-growth
+ */
+export const getUserGrowthChart = async (req, res, next) => {
+    try {
+        const { period = 'month' } = req.query;
+        const now = new Date();
+        let startDate;
+        let groupByFormat;
+
+        if (period === 'week') {
+            startDate = new Date(new Date(now).setDate(now.getDate() - 7));
+            groupByFormat = '%d %b';
+        } else if (period === 'year') {
+            startDate = new Date(new Date(now).setFullYear(now.getFullYear() - 1));
+            groupByFormat = '%b';
+        } else { // month
+            startDate = new Date(new Date(now).setMonth(now.getMonth() - 1));
+            groupByFormat = '%d %b';
+        }
+
+        const growthData = await User.aggregate([
+            { $match: { role: 'user', createdAt: { $gte: startDate } } },
+            {
+                $group: {
+                    _id: { $dateToString: { format: groupByFormat, date: '$createdAt' } },
+                    count: { $sum: 1 },
+                    date: { $first: '$createdAt' }
+                }
+            },
+            { $sort: { date: 1 } },
+            { $project: { _id: 0, date: '$_id', count: 1 } }
+        ]);
+
+        if (res) {
+            res.status(200).json({ success: true, data: growthData });
+        } else {
+            return growthData;
+        }
+    } catch (error) {
+        if (next) next(error);
+        else throw error;
+    }
+};
+
+/**
  * @desc    Get revenue time-series data for chart
  * @route   GET /api/v1/admin/dashboard/revenue-chart
  */
@@ -133,13 +245,13 @@ export const getRevenueChart = async (req, res, next) => {
         let groupByFormat;
 
         if (period === 'week') {
-            startDate = new Date(now.setDate(now.getDate() - 7));
+            startDate = new Date(new Date(now).setDate(now.getDate() - 7));
             groupByFormat = '%d %b'; // 01 Jun
         } else if (period === 'year') {
-            startDate = new Date(now.setFullYear(now.getFullYear() - 1));
+            startDate = new Date(new Date(now).setFullYear(now.getFullYear() - 1));
             groupByFormat = '%b'; // Jun
         } else { // month
-            startDate = new Date(now.setMonth(now.getMonth() - 1));
+            startDate = new Date(new Date(now).setMonth(now.getMonth() - 1));
             groupByFormat = '%d %b';
         }
 
@@ -177,9 +289,9 @@ export const getCategorySales = async (req, res, next) => {
         const now = new Date();
         let startDate;
 
-        if (period === 'week') startDate = new Date(now.setDate(now.getDate() - 7));
-        else if (period === 'year') startDate = new Date(now.setFullYear(now.getFullYear() - 1));
-        else startDate = new Date(now.setMonth(now.getMonth() - 1));
+        if (period === 'week') startDate = new Date(new Date(now).setDate(now.getDate() - 7));
+        else if (period === 'year') startDate = new Date(new Date(now).setFullYear(now.getFullYear() - 1));
+        else startDate = new Date(new Date(now).setMonth(now.getMonth() - 1));
 
         const categorySales = await Order.aggregate([
             { $match: { status: 'Paid', createdAt: { $gte: startDate } } },
@@ -297,12 +409,24 @@ export const getTopProducts = async (req, res, next) => {
  */
 export const getDashboardAll = async (req, res, next) => {
     try {
-        const [summary, revenueChart, categorySales, recentOrders, topProducts] = await Promise.all([
+        const [
+            summary, 
+            revenueChart, 
+            categorySales, 
+            recentOrders, 
+            topProducts,
+            lowStock,
+            orderStatus,
+            userGrowth
+        ] = await Promise.all([
             getDashboardSummary(req, null, null),
             getRevenueChart(req, null, null),
             getCategorySales(req, null, null),
             getRecentOrders(req, null, null),
-            getTopProducts(req, null, null)
+            getTopProducts(req, null, null),
+            getLowStockProducts(req, null, null),
+            getOrderStatusDistribution(req, null, null),
+            getUserGrowthChart(req, null, null)
         ]);
 
         res.status(200).json({
@@ -312,7 +436,10 @@ export const getDashboardAll = async (req, res, next) => {
                 revenueChart,
                 categorySales,
                 recentOrders,
-                topProducts
+                topProducts,
+                lowStock,
+                orderStatus,
+                userGrowth
             }
         });
     } catch (error) {

@@ -33,3 +33,15 @@ Cookie: token={{adminLogin.response.headers.set-cookie}}
 ### 7. Get Top Products
 GET {{baseUrl}}/admin/dashboard/top-products?limit=3
 Cookie: token={{adminLogin.response.headers.set-cookie}}
+
+### 8. Get Low Stock Products
+GET {{baseUrl}}/admin/dashboard/low-stock?threshold=10
+Cookie: token={{adminLogin.response.headers.set-cookie}}
+
+### 9. Get Order Status Distribution
+GET {{baseUrl}}/admin/dashboard/order-status
+Cookie: token={{adminLogin.response.headers.set-cookie}}
+
+### 10. Get User Growth Chart
+GET {{baseUrl}}/admin/dashboard/user-growth?period=year
+Cookie: token={{adminLogin.response.headers.set-cookie}}
