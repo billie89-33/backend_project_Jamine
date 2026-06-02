@@ -10,12 +10,13 @@ import {
     deleteAddress
 } from '../../controllers/v1/users.controller.js';
 import { protect } from '../../middlewares/auth.middleware.js';
+import { authLimiter } from '../../middlewares/rateLimit.middleware.js';
 
 const router = express.Router();
 
 // Public routes
-router.post('/register', registerUser);
-router.post('/login', loginUser);
+router.post('/register', authLimiter, registerUser);
+router.post('/login', authLimiter, loginUser);
 router.post('/logout', logoutUser);
 
 // Protected routes (ต้องล็อกอิน)
