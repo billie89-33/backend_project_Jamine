@@ -110,9 +110,21 @@ export const getDashboardSummary = async (req, res, next) => {
         const customersTrend = prevCustomers === 0 ? '+100%' : `${(((currentCustomers - prevCustomers) / prevCustomers) * 100).toFixed(0)}%`;
 
         const summary = {
-            balance: { value: totalRevenue, trend: revenueTrend, currentPeriodValue: currentRevenue },
-            orders: { value: totalOrders, trend: ordersTrend, currentPeriodValue: currentOrders },
-            customers: { value: totalCustomers, trend: customersTrend, currentPeriodValue: currentCustomers }
+            balance: { 
+                value: currentRevenue, 
+                trend: revenueTrend, 
+                allTimeValue: totalRevenue 
+            },
+            orders: { 
+                value: currentOrders, 
+                trend: ordersTrend, 
+                allTimeValue: totalOrders 
+            },
+            customers: { 
+                value: currentCustomers, 
+                trend: customersTrend, 
+                allTimeValue: totalCustomers 
+            }
         };
 
         if (res) {
