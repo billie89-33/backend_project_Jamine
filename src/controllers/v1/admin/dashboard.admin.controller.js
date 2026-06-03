@@ -8,25 +8,32 @@ import User from '../../../models/user.model.js';
  */
 export const getDashboardSummary = async (req, res, next) => {
     try {
-        const { period = 'month' } = req.query;
+        const { period = 'week' } = req.query;
 
         // Calculate date range for current and previous period
-        const now = new Date();
-        let startDate;
-        let prevStartDate;
+        let startDate = new Date();
+        let prevStartDate = new Date();
 
         if (period === 'today') {
-            startDate = new Date(new Date(now).setHours(0, 0, 0, 0));
-            prevStartDate = new Date(new Date(startDate).setDate(startDate.getDate() - 1));
+            startDate.setHours(0, 0, 0, 0);
+            prevStartDate.setDate(startDate.getDate() - 1);
+            prevStartDate.setHours(0, 0, 0, 0);
         } else if (period === 'week') {
-            startDate = new Date(new Date(now).setDate(now.getDate() - 7));
-            prevStartDate = new Date(new Date(startDate).setDate(startDate.getDate() - 7));
+            startDate.setDate(startDate.getDate() - 7);
+            startDate.setHours(0, 0, 0, 0);
+            prevStartDate.setDate(startDate.getDate() - 7);
+            prevStartDate.setHours(0, 0, 0, 0);
         } else if (period === 'year') {
-            startDate = new Date(new Date(now).setFullYear(now.getFullYear() - 1));
-            prevStartDate = new Date(new Date(startDate).setFullYear(startDate.getFullYear() - 1));
+            startDate.setMonth(0, 1);
+            startDate.setHours(0, 0, 0, 0);
+            prevStartDate.setFullYear(startDate.getFullYear() - 1);
+            prevStartDate.setHours(0, 0, 0, 0);
         } else { // default to month
-            startDate = new Date(new Date(now).setMonth(now.getMonth() - 1));
-            prevStartDate = new Date(new Date(startDate).setMonth(startDate.getMonth() - 1));
+            startDate.setDate(1);
+            startDate.setHours(0, 0, 0, 0);
+            prevStartDate.setMonth(startDate.getMonth() - 1);
+            prevStartDate.setDate(1);
+            prevStartDate.setHours(0, 0, 0, 0);
         }
 
         // 1. Balance (Revenue from Paid orders)
@@ -241,19 +248,28 @@ export const getUserGrowthChart = async (req, res, next) => {
  */
 export const getRevenueChart = async (req, res, next) => {
     try {
-        const { period = 'month' } = req.query;
-        const now = new Date();
+        const { period = 'week' } = req.query; // เปลี่ยน default เป็น week
+        const now = new Date(); // สร้าง Date ใหม่เสมอ
         let startDate;
         let groupByFormat;
 
-        if (period === 'week') {
-            startDate = new Date(new Date(now).setDate(now.getDate() - 7));
-            groupByFormat = '%d %b'; // 01 Jun
+        if (period === 'today') {
+            startDate = new Date(now.setHours(0, 0, 0, 0));
+            groupByFormat = '%H:00'; // ถ้าเป็น today ให้แยกตามชั่วโมง
+        } else if (period === 'week') {
+            startDate = new Date();
+            startDate.setDate(startDate.getDate() - 7);
+            startDate.setHours(0, 0, 0, 0);
+            groupByFormat = '%d %b'; // วัน/เดือน
         } else if (period === 'year') {
-            startDate = new Date(new Date(now).setFullYear(now.getFullYear() - 1));
-            groupByFormat = '%b'; // Jun
+            startDate = new Date();
+            startDate.setMonth(0, 1);
+            startDate.setHours(0, 0, 0, 0);
+            groupByFormat = '%b'; // เดือน
         } else { // month
-            startDate = new Date(new Date(now).setMonth(now.getMonth() - 1));
+            startDate = new Date();
+            startDate.setDate(1);
+            startDate.setHours(0, 0, 0, 0);
             groupByFormat = '%d %b';
         }
 
@@ -269,6 +285,15 @@ export const getRevenueChart = async (req, res, next) => {
             { $sort: { date: 1 } },
             { $project: { _id: 0, date: '$_id', revenue: 1 } }
         ]);
+
+        // 🔥 สำคัญมาก: ถ้าข้อมูลมีแค่ 1 จุด กราฟเส้น ApexCharts จะไม่ลากเส้น
+        // วิธีแก้แบบมืออาชีพ: ถ้าได้ข้อมูลมาจุดเดียว ให้จำลองจุดเริ่มต้นที่ 0 เพื่อให้กราฟตีเส้นได้
+        if (chartData.length === 1 && period !== 'year') {
+            chartData.unshift({ 
+                date: period === 'today' ? '00:00' : 'Start', 
+                revenue: 0 
+            });
+        }
 
         if (res) {
             res.status(200).json({ success: true, data: chartData });
