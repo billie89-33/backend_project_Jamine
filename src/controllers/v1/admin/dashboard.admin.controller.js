@@ -8,32 +8,31 @@ import User from '../../../models/user.model.js';
  */
 export const getDashboardSummary = async (req, res, next) => {
     try {
-        const { period = 'week' } = req.query;
+        const { period = 'month' } = req.query;
 
-        // Calculate date range for current and previous period
+        const now = new Date();
         let startDate = new Date();
         let prevStartDate = new Date();
 
-        if (period === 'today') {
-            startDate.setHours(0, 0, 0, 0);
-            prevStartDate.setDate(startDate.getDate() - 1);
-            prevStartDate.setHours(0, 0, 0, 0);
-        } else if (period === 'week') {
-            startDate.setDate(startDate.getDate() - 7);
-            startDate.setHours(0, 0, 0, 0);
-            prevStartDate.setDate(startDate.getDate() - 7);
-            prevStartDate.setHours(0, 0, 0, 0);
-        } else if (period === 'year') {
-            startDate.setMonth(0, 1);
-            startDate.setHours(0, 0, 0, 0);
-            prevStartDate.setFullYear(startDate.getFullYear() - 1);
-            prevStartDate.setHours(0, 0, 0, 0);
-        } else { // default to month
-            startDate.setDate(1);
-            startDate.setHours(0, 0, 0, 0);
-            prevStartDate.setMonth(startDate.getMonth() - 1);
-            prevStartDate.setDate(1);
-            prevStartDate.setHours(0, 0, 0, 0);
+        switch (period) {
+            case 'today':
+                startDate.setHours(0, 0, 0, 0);
+                prevStartDate = new Date(startDate);
+                prevStartDate.setDate(prevStartDate.getDate() - 1);
+                break;
+            case 'week':
+                startDate.setDate(now.getDate() - 7);
+                startDate.setHours(0, 0, 0, 0);
+                prevStartDate = new Date(startDate);
+                prevStartDate.setDate(prevStartDate.getDate() - 7);
+                break;
+            case 'year':
+                startDate = new Date(now.getFullYear(), 0, 1);
+                prevStartDate = new Date(now.getFullYear() - 1, 0, 1);
+                break;
+            default: // month
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                prevStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         }
 
         // 1. Balance (Revenue from Paid orders)
@@ -201,21 +200,27 @@ export const getOrderStatusDistribution = async (req, res, next) => {
 export const getUserGrowthChart = async (req, res, next) => {
     try {
         const { period = 'month' } = req.query;
+        const now = new Date();
         let startDate = new Date();
-        startDate.setHours(0, 0, 0, 0);
         let groupByFormat;
 
-        if (period === 'today') {
-            groupByFormat = '%H:00';
-        } else if (period === 'week') {
-            startDate.setDate(startDate.getDate() - 7);
-            groupByFormat = '%d %b';
-        } else if (period === 'year') {
-            startDate.setMonth(0, 1);
-            groupByFormat = '%b';
-        } else { // default to month
-            startDate.setDate(1);
-            groupByFormat = '%d %b';
+        switch (period) {
+            case 'today':
+                startDate.setHours(0, 0, 0, 0);
+                groupByFormat = '%H:00';
+                break;
+            case 'week':
+                startDate.setDate(now.getDate() - 7);
+                startDate.setHours(0, 0, 0, 0);
+                groupByFormat = '%Y-%m-%d';
+                break;
+            case 'year':
+                startDate = new Date(now.getFullYear(), 0, 1);
+                groupByFormat = '%Y-%m';
+                break;
+            default: // month
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                groupByFormat = '%Y-%m-%d';
         }
 
         const growthData = await User.aggregate([
@@ -230,6 +235,13 @@ export const getUserGrowthChart = async (req, res, next) => {
             { $sort: { date: 1 } },
             { $project: { _id: 0, date: '$_id', count: 1 } }
         ]);
+
+        if (growthData.length === 1) {
+            growthData.unshift({ 
+                date: period === 'year' ? 'Jan' : 'Start', 
+                count: 0 
+            });
+        }
 
         if (res) {
             res.status(200).json({ success: true, data: growthData });
@@ -248,29 +260,28 @@ export const getUserGrowthChart = async (req, res, next) => {
  */
 export const getRevenueChart = async (req, res, next) => {
     try {
-        const { period = 'week' } = req.query; // เปลี่ยน default เป็น week
-        const now = new Date(); // สร้าง Date ใหม่เสมอ
-        let startDate;
+        const { period = 'month' } = req.query;
+        const now = new Date();
+        let startDate = new Date();
         let groupByFormat;
 
-        if (period === 'today') {
-            startDate = new Date(now.setHours(0, 0, 0, 0));
-            groupByFormat = '%H:00'; // ถ้าเป็น today ให้แยกตามชั่วโมง
-        } else if (period === 'week') {
-            startDate = new Date();
-            startDate.setDate(startDate.getDate() - 7);
-            startDate.setHours(0, 0, 0, 0);
-            groupByFormat = '%d %b'; // วัน/เดือน
-        } else if (period === 'year') {
-            startDate = new Date();
-            startDate.setMonth(0, 1);
-            startDate.setHours(0, 0, 0, 0);
-            groupByFormat = '%b'; // เดือน
-        } else { // month
-            startDate = new Date();
-            startDate.setDate(1);
-            startDate.setHours(0, 0, 0, 0);
-            groupByFormat = '%d %b';
+        switch (period) {
+            case 'today':
+                startDate.setHours(0, 0, 0, 0);
+                groupByFormat = '%H:00'; // จัดกลุ่มตามชั่วโมง
+                break;
+            case 'week':
+                startDate.setDate(now.getDate() - 7);
+                startDate.setHours(0, 0, 0, 0);
+                groupByFormat = '%Y-%m-%d'; // จัดกลุ่มตามวัน
+                break;
+            case 'year':
+                startDate = new Date(now.getFullYear(), 0, 1); // 1 มกราคม ของปีนี้
+                groupByFormat = '%Y-%m'; // จัดกลุ่มตามเดือน
+                break;
+            default: // month
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1); // วันที่ 1 ของเดือนนี้
+                groupByFormat = '%Y-%m-%d'; // จัดกลุ่มตามวัน
         }
 
         const chartData = await Order.aggregate([
@@ -286,11 +297,12 @@ export const getRevenueChart = async (req, res, next) => {
             { $project: { _id: 0, date: '$_id', revenue: 1 } }
         ]);
 
-        // 🔥 สำคัญมาก: ถ้าข้อมูลมีแค่ 1 จุด กราฟเส้น ApexCharts จะไม่ลากเส้น
-        // วิธีแก้แบบมืออาชีพ: ถ้าได้ข้อมูลมาจุดเดียว ให้จำลองจุดเริ่มต้นที่ 0 เพื่อให้กราฟตีเส้นได้
-        if (chartData.length === 1 && period !== 'year') {
+        // ⚠️ สำคัญสำหรับการวาดกราฟเส้น:
+        // ถ้า Backend คิวรี่มาแล้วได้ข้อมูลแค่ "จุดเดียว" 
+        // กรุณาแนบจุดเริ่มต้นจำลอง (Dummy Start Point) ส่งกลับมาให้หน้าบ้านด้วย
+        if (chartData.length === 1) {
             chartData.unshift({ 
-                date: period === 'today' ? '00:00' : 'Start', 
+                date: period === 'year' ? 'Jan' : 'Start', 
                 revenue: 0 
             });
         }
@@ -313,17 +325,22 @@ export const getRevenueChart = async (req, res, next) => {
 export const getCategorySales = async (req, res, next) => {
     try {
         const { period = 'month' } = req.query;
+        const now = new Date();
         let startDate = new Date();
-        startDate.setHours(0, 0, 0, 0);
 
-        if (period === 'today') {
-            // Already set to start of today
-        } else if (period === 'week') {
-            startDate.setDate(startDate.getDate() - 7);
-        } else if (period === 'year') {
-            startDate.setMonth(0, 1);
-        } else { // default to month
-            startDate.setDate(1);
+        switch (period) {
+            case 'today':
+                startDate.setHours(0, 0, 0, 0);
+                break;
+            case 'week':
+                startDate.setDate(now.getDate() - 7);
+                startDate.setHours(0, 0, 0, 0);
+                break;
+            case 'year':
+                startDate = new Date(now.getFullYear(), 0, 1);
+                break;
+            default: // month
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         }
 
         const categorySales = await Order.aggregate([
