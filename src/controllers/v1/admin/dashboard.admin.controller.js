@@ -194,18 +194,20 @@ export const getOrderStatusDistribution = async (req, res, next) => {
 export const getUserGrowthChart = async (req, res, next) => {
     try {
         const { period = 'month' } = req.query;
-        const now = new Date();
-        let startDate;
+        let startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
         let groupByFormat;
 
-        if (period === 'week') {
-            startDate = new Date(new Date(now).setDate(now.getDate() - 7));
+        if (period === 'today') {
+            groupByFormat = '%H:00';
+        } else if (period === 'week') {
+            startDate.setDate(startDate.getDate() - 7);
             groupByFormat = '%d %b';
         } else if (period === 'year') {
-            startDate = new Date(new Date(now).setFullYear(now.getFullYear() - 1));
+            startDate.setMonth(0, 1);
             groupByFormat = '%b';
-        } else { // month
-            startDate = new Date(new Date(now).setMonth(now.getMonth() - 1));
+        } else { // default to month
+            startDate.setDate(1);
             groupByFormat = '%d %b';
         }
 
@@ -286,12 +288,18 @@ export const getRevenueChart = async (req, res, next) => {
 export const getCategorySales = async (req, res, next) => {
     try {
         const { period = 'month' } = req.query;
-        const now = new Date();
-        let startDate;
+        let startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
 
-        if (period === 'week') startDate = new Date(new Date(now).setDate(now.getDate() - 7));
-        else if (period === 'year') startDate = new Date(new Date(now).setFullYear(now.getFullYear() - 1));
-        else startDate = new Date(new Date(now).setMonth(now.getMonth() - 1));
+        if (period === 'today') {
+            // Already set to start of today
+        } else if (period === 'week') {
+            startDate.setDate(startDate.getDate() - 7);
+        } else if (period === 'year') {
+            startDate.setMonth(0, 1);
+        } else { // default to month
+            startDate.setDate(1);
+        }
 
         const categorySales = await Order.aggregate([
             { $match: { status: 'Paid', createdAt: { $gte: startDate } } },

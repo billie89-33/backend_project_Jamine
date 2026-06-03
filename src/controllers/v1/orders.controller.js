@@ -95,6 +95,38 @@ export const createOrder = async (req, res, next) => {
 
         await checkAndExpireOrders();
 
+        // 🟢 On-Demand Cleanup: ยกเลิกออเดอร์เดิมที่ยังค้างชำระของผู้ใช้นี้ เพื่อคืนสต็อกก่อนสร้างออเดอร์ใหม่จากตะกร้า
+        // ป้องกันบั๊กการกด Checkout รัวๆ แล้วจองสต็อกซ้ำซ้อน (Inventory Leak)
+        const existingPendingOrders = await Order.find({
+            userId: req.user._id,
+            status: 'Awaiting Payment'
+        }).select('_id items').lean();
+
+        if (existingPendingOrders.length > 0) {
+            const bulkRestockOps = [];
+            for (const order of existingPendingOrders) {
+                const lockedOrder = await Order.findOneAndUpdate(
+                    { _id: order._id, status: 'Awaiting Payment' },
+                    { $set: { status: 'Cancelled' } },
+                    { new: true }
+                ).select('_id').lean();
+
+                if (lockedOrder) {
+                    for (const item of order.items) {
+                        bulkRestockOps.push({
+                            updateOne: {
+                                filter: { _id: item.productId },
+                                update: { $inc: { stock: item.quantity } }
+                            }
+                        });
+                    }
+                }
+            }
+            if (bulkRestockOps.length > 0) {
+                await Product.bulkWrite(bulkRestockOps);
+            }
+        }
+
         const cart = await Cart.findOne({ userId: req.user._id }).lean();
         if (!cart || cart.items.length === 0) {
             const error = new Error('ตะกร้าสินค้าว่างเปล่า');
@@ -191,9 +223,8 @@ export const createOrder = async (req, res, next) => {
             expiresAt
         });
 
-        await Cart.findOneAndUpdate({ userId: req.user._id }, {
-            $set: { items: [], subtotal: 0, shippingFee: 0, total: 0 }
-        });
+        // 🚨 นำโค้ดล้างตะกร้าออกตามกฎ "Cart as the Last Stand" 
+        // ตะกร้าจะถูกล้างเมื่อสถานะเปลี่ยนเป็น Paid เท่านั้น
 
         res.status(201).json({
             success: true,
@@ -286,6 +317,13 @@ export const mockPayment = async (req, res, next) => {
         if (bulkSoldOps.length > 0) {
             await Product.bulkWrite(bulkSoldOps);
         }
+
+        // 🧹 DOUBLE-LOCK CART CLEARING (Layer 1 - Backend Driven)
+        // เมื่อชำระเงินสำเร็จ ให้ล้างตะกร้าของ User คนนั้นทันที
+        await Cart.findOneAndUpdate(
+            { userId: req.user._id }, 
+            { $set: { items: [], subtotal: 0, shippingFee: 0, total: 0 } }
+        );
 
         res.status(200).json({
             success: true,

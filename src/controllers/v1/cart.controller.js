@@ -299,3 +299,21 @@ export const getCartSummary = async (req, res, next) => {
         next(error);
     }
 };
+
+// @desc    Clear entire cart (Double-Lock Cart Clearing - Layer 2)
+// @route   DELETE /api/v1/cart/clear
+export const clearCart = async (req, res, next) => {
+    try {
+        await Cart.findOneAndUpdate(
+            { userId: req.user._id }, 
+            { $set: { items: [], subtotal: 0, shippingFee: 0, total: 0 } }
+        );
+
+        res.status(200).json({
+            success: true,
+            message: 'ล้างตะกร้าสินค้าเรียบร้อยแล้ว'
+        });
+    } catch (error) {
+        next(error);
+    }
+};

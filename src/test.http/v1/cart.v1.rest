@@ -39,5 +39,8 @@ GET {{baseUrl}}/cart/summary
 ### 6. Remove Item from Cart
 DELETE {{baseUrl}}/cart/{{productId}}
 
-### 7. Logout
+### 7. Clear Entire Cart (Double-Lock Layer 2)
+DELETE {{baseUrl}}/cart/clear
+
+### 8. Logout
 POST {{baseUrl}}/users/logout

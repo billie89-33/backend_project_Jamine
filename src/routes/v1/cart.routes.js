@@ -4,7 +4,8 @@ import {
     addToCart, 
     updateCartQuantity, 
     removeFromCart, 
-    getCartSummary 
+    getCartSummary,
+    clearCart 
 } from '../../controllers/v1/cart.controller.js';
 import { protect } from '../../middlewares/auth.middleware.js';
 import { validateMongoId } from '../../middlewares/validateId.middleware.js';
@@ -23,6 +24,7 @@ router.use(protect);
 router.get('/', getCart);
 router.get('/summary', getCartSummary); // ย้ายขึ้นมาไว้ก่อน dynamic parameter
 router.patch('/update-quantity', cartValidationMiddleware, updateCartQuantity);
+router.delete('/clear', clearCart); // Double-Lock Cart Clearing (Layer 2)
 
 // --- 2. Dynamic Routes (ต้องวางไว้ด้านล่าง) ---
 router.post('/', cartValidationMiddleware, addToCart);
