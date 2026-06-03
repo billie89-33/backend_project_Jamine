@@ -471,6 +471,12 @@ export const getTopProducts = async (req, res, next) => {
  */
 export const getDashboardAll = async (req, res, next) => {
     try {
+        // 🔥 ดึง period ออกมาตรงนี้เลย
+        const { period = 'week' } = req.query; 
+
+        // 🔥 สร้าง Mock Request Object ที่มีแค่ query.period เพื่อส่งให้ฟังก์ชันลูก
+        const mockReq = { query: { period } }; 
+
         const [
             summary, 
             revenueChart, 
@@ -481,14 +487,14 @@ export const getDashboardAll = async (req, res, next) => {
             orderStatus,
             userGrowth
         ] = await Promise.all([
-            getDashboardSummary(req, null, null),
-            getRevenueChart(req, null, null),
-            getCategorySales(req, null, null),
-            getRecentOrders(req, null, null),
-            getTopProducts(req, null, null),
-            getLowStockProducts(req, null, null),
-            getOrderStatusDistribution(req, null, null),
-            getUserGrowthChart(req, null, null)
+            getDashboardSummary(mockReq, null, null), // ส่ง mockReq แทน req
+            getRevenueChart(mockReq, null, null),
+            getCategorySales(mockReq, null, null),
+            getRecentOrders(mockReq, null, null), // ไม่เกี่ยวเรื่องเวลา แต่ส่งไปก็ไม่เป็นไรเพราะ query.limit ไม่พัง (ใช้ค่า default)
+            getTopProducts(mockReq, null, null),
+            getLowStockProducts(mockReq, null, null),
+            getOrderStatusDistribution(mockReq, null, null),
+            getUserGrowthChart(mockReq, null, null)
         ]);
 
         res.status(200).json({
