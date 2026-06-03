@@ -100,28 +100,32 @@ export const createProduct = async (req, res, next) => {
 // @access  Private (Admin only)
 export const updateProduct = async (req, res, next) => {
     try {
-        const updateData = { ...req.body };
         const productId = req.params.id;
-
         const existingProduct = await Product.findById(productId);
+        
         if (!existingProduct) {
             const error = new Error('Product not found');
             error.status = 404;
             throw error;
         }
 
-        // 1. Image Update Logic
+        // 🛡️ สร้าง Object สำหรับเก็บเฉพาะข้อมูลที่จะเปลี่ยนจริงๆ
+        const updateData = {};
+        const unsetObj = {};
+
+        // 1. Image Update (ถ้ามีไฟล์ใหม่มา)
         if (req.file) {
             if (existingProduct.image?.publicId) {
-                await cloudinary.uploader.destroy(existingProduct.image.publicId);
+                try {
+                    await cloudinary.uploader.destroy(existingProduct.image.publicId);
+                } catch (e) { console.error("Cloudinary Delete Error:", e); }
             }
             updateData.image = { url: req.file.path, publicId: req.file.filename };
         }
 
-        // 2. Specifications Dynamic Handling ($set and $unset)
-        const unsetObj = {};
-        if (updateData.specifications) {
-            let specs = updateData.specifications;
+        // 2. Specifications Dynamic Handling
+        if (req.body.specifications) {
+            let specs = req.body.specifications;
             if (typeof specs === 'string') specs = JSON.parse(specs);
 
             for (const [key, value] of Object.entries(specs)) {
@@ -131,39 +135,54 @@ export const updateProduct = async (req, res, next) => {
                     updateData[`specifications.${key}`] = String(value);
                 }
             }
-            delete updateData.specifications;
         }
 
-        // 3. Tags handling (Safe Parse)
-        if (updateData.tags && typeof updateData.tags === 'string') {
+        // 3. Tags Handling
+        if (req.body.tags) {
             try {
-                const parsedTags = JSON.parse(updateData.tags);
+                const parsedTags = typeof req.body.tags === 'string' ? JSON.parse(req.body.tags) : req.body.tags;
                 updateData.tags = Array.isArray(parsedTags) ? parsedTags : [parsedTags];
             } catch (e) {
-                updateData.tags = updateData.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+                updateData.tags = req.body.tags.split(',').map(tag => tag.trim()).filter(Boolean);
             }
         }
 
-        // 4. Data Normalization (Final casting before DB)
-        if (updateData.price !== undefined) updateData.price = Number(updateData.price);
-        if (updateData.stock !== undefined) updateData.stock = Number(updateData.stock);
-        if (updateData.isFeatured !== undefined) {
-            updateData.isFeatured = updateData.isFeatured === 'true' || updateData.isFeatured === true;
+        // 4. Map อื่นๆ ที่เหลือจาก req.body (สกัดเอาเฉพาะฟิลด์ที่มีค่ามาจริงๆ)
+        const fields = ['brand', 'modelName', 'description', 'sku', 'price', 'stock', 'category', 'status', 'isFeatured'];
+        fields.forEach(field => {
+            if (req.body[field] !== undefined) {
+                let val = req.body[field];
+                if (field === 'price' || field === 'stock') val = Number(val);
+                if (field === 'isFeatured') val = (val === 'true' || val === true);
+                updateData[field] = val;
+            }
+        });
+
+        // 5. ⚡ หัวใจการแก้ไข: ใช้ findByIdAndUpdate แบบแยก $set และ $unset
+        // และ 'context: query' เพื่อให้ validator รู้ว่าเป็นอัปเดตเฉพาะจุด
+        const updateQuery = {};
+        if (Object.keys(updateData).length > 0) updateQuery.$set = updateData;
+        if (Object.keys(unsetObj).length > 0) updateQuery.$unset = unsetObj;
+
+        if (Object.keys(updateQuery).length === 0) {
+            return res.status(200).json({ success: true, data: existingProduct, message: 'No changes detected' });
         }
 
-        // 5. Update with both $set and $unset
         const product = await Product.findByIdAndUpdate(
             productId,
+            updateQuery,
             { 
-                $set: updateData,
-                ...(Object.keys(unsetObj).length > 0 && { $unset: unsetObj })
-            },
-            { new: true, runValidators: true }
+                new: true, 
+                runValidators: true,
+                context: 'query' // 🔥 สำคัญ: บอก Mongoose ว่านี่คือ Query Validation ไม่ใช่การสร้างใหม่
+            }
         );
 
         res.status(200).json({ success: true, data: product });
     } catch (error) {
-        if (req.file) await cloudinary.uploader.destroy(req.file.filename);
+        if (req.file) {
+            try { await cloudinary.uploader.destroy(req.file.filename); } catch (e) {}
+        }
         next(error);
     }
 };
