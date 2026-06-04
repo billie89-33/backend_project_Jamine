@@ -13,8 +13,12 @@ const formatUserResponse = (user) => {
 // @access  Public
 export const registerUser = async (req, res, next) => {
     try {
-        const { username, email, password, confirmPassword, role } = req.body;
+        // 1. Sanitize inputs (Trim and Normalize)
+        const username = req.body.username ? req.body.username.trim() : '';
+        const email = req.body.email ? req.body.email.trim().toLowerCase() : '';
+        const { password, confirmPassword, role } = req.body;
 
+        // 2. Validate required fields after sanitization
         if (!username || !email || !password || !confirmPassword) {
             return res.status(400).json({
                 success: false,
@@ -22,11 +26,12 @@ export const registerUser = async (req, res, next) => {
             });
         }
 
-        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.com$/;
+        // 3. Flexible Email Validation (supports .com, .net, .th, etc.)
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             return res.status(400).json({
                 success: false,
-                message: 'Please provide a valid email address ending with .com'
+                message: 'Please provide a valid email address'
             });
         }
 
@@ -46,7 +51,7 @@ export const registerUser = async (req, res, next) => {
 
         const userExists = await User.findOne({ 
             $or: [
-                { email: email.toLowerCase() },
+                { email: email },
                 { username: username }
             ]
         });
@@ -211,16 +216,17 @@ export const updateUser = async (req, res, next) => {
 
         const { username, email, password, role } = req.body;
 
-        if (username) user.username = username;
+        if (username) user.username = username.trim();
         if (email) {
-            const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.com$/;
-            if (!emailRegex.test(email)) {
+            const sanitizedEmail = email.trim().toLowerCase();
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(sanitizedEmail)) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Please provide a valid email address ending with .com'
+                    message: 'Please provide a valid email address'
                 });
             }
-            user.email = email.toLowerCase();
+            user.email = sanitizedEmail;
         }
         if (password) {
             if (password.length < 6) {

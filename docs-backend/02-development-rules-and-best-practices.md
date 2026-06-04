@@ -90,7 +90,11 @@
     - **ต้อง** ใช้ `# @name` ในไฟล์ `.rest` เพื่อระบุชื่อ Request ให้ชัดเจนและง่ายต่อการอ่าน/ทดสอบอัตโนมัติ
     - **ต้อง** จัดลำดับ Request ให้ `Logout` อยู่ล่างสุดเสมอ เพื่อรองรับ Auto Test (`npm test`)
 - **Data Validation & Security**:
-    - **กฎของ User**: Email ต้องลงท้ายด้วย `.com`, Password ต้องยาว 6 ตัวขึ้นไป, และตรวจสอบความซ้ำซ้อนก่อนบันทึก
+    - **กฎของ User**: ใช้ Email Regex แบบมาตรฐาน (ไม่จำกัดเฉพาะ .com), Password ต้องยาวอย่างน้อย 6 ตัวอักษร, และต้องทำ **Sanitization** (Trim whitespace และ Lowercase Email) ก่อนตรวจสอบหรือบันทึกเสมอ
+    - **Input Sanitization Pattern**:
+        - **Trim**: ต้องใช้ `.trim()` กับ String inputs เช่น `username`, `email` เพื่อป้องกันช่องว่างส่วนเกิน
+        - **Normalization**: อีเมลต้องถูกแปลงเป็นตัวพิมพ์เล็ก (`.toLowerCase()`) ก่อนเช็คความซ้ำซ้อนและก่อนบันทึก เพื่อความเป็น SSOT
+        - **Flexible Regex**: ใช้ `/^[^\s@]+@[^\s@]+\.[^\s@]+$/` สำหรับการตรวจสอบอีเมลที่ครอบคลุมทุก Domain
     - **ห้าม** Commit ไฟล์ `.env` ขึ้น GitHub
     - **ห้าม** ส่ง Password กลับไปใน API Response (`select: false` ใน Schema)
     - **ต้อง** ใช้ `toJSON` และ `toObject` transformations ใน Schema เพื่อลบข้อมูล Sensitive (เช่น `password`) ออกโดยอัตโนมัติ
