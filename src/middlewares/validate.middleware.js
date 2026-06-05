@@ -1,12 +1,13 @@
 import cloudinary from '../config/cloudinary.js';
+import { CATEGORIES, PRODUCT_STATUS } from '../constants/index.js';
 
 /**
  * Validation Utility for Product Data
  */
 export const validateProduct = (data, isUpdate = false) => {
     const errors = [];
-    const categories = ['Notebook', 'Keyboard', 'Computer', 'Monitor', 'Gaming Mouse', 'Graphics Card', 'RAM', 'CPU', 'Mainboard'];
-    const statuses = ['active', 'inactive', 'draft'];
+    const categories = CATEGORIES;
+    const statuses = Object.values(PRODUCT_STATUS);
 
     if (!isUpdate) {
         if (!data.brand) errors.push('Brand is required');

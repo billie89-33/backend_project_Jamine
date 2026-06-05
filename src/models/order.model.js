@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import crypto from 'crypto';
+import { ORDER_STATUS } from '../constants/index.js';
 
 const orderItemSchema = new mongoose.Schema({
     productId: { 
@@ -57,8 +58,8 @@ const orderSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Awaiting Payment', 'Paid', 'Cancelled'],
-        default: 'Awaiting Payment'
+        enum: Object.values(ORDER_STATUS),
+        default: ORDER_STATUS.PENDING
     },
     paymentDetails: {
         method: String,

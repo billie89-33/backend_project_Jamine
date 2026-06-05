@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
+import { USER_ROLES } from '../constants/index.js';
 
 const userSchema = new mongoose.Schema({
     username: {
@@ -10,8 +11,8 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['user', 'admin'],
-        default: 'user'
+        enum: Object.values(USER_ROLES),
+        default: USER_ROLES.USER
     },
     email: {
         type: String,

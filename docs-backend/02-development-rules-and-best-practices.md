@@ -16,7 +16,7 @@
 - **การอัปเดตข้อมูลแบบเฉพาะเจาะจง (Partial Update):**
     - เมื่อมีการอัปเดตข้อมูลภายใน Map หรือ Object ที่ซ้อนทับกัน **ต้อง** แปลงข้อมูลให้อยู่ในรูปแบบ Dot Notation ก่อนส่งไปอัปเดต (เช่น `{"specifications.RAM": "16GB"}`) เพื่อป้องกันการลบข้อมูลอื่นๆ ใน Map นั้นทิ้ง
 - **การใช้ Enum สำหรับหมวดหมู่หลัก:**
-    - หากหมวดหมู่หลักมีจำนวนจำกัดและเป็นมาตรฐาน (เช่น 'Notebook', 'Computer') ควรใช้ `enum` ใน Schema เพื่อจำกัดค่าที่อนุญาตและป้องกันความผิดพลาดจากการพิมพ์
+    - หากหมวดหมู่หลักมีจำนวนจำกัดและเป็นมาตรฐาน (เช่น 'Notebook', 'Keyboard') ควรใช้ `enum` ใน Schema เพื่อจำกัดค่าที่อนุญาตและป้องกันความผิดพลาดจากการพิมพ์
 - **แยก Logic ออกจาก Schema:**
     - Schema ควรมีหน้าที่แค่กำหนดโครงสร้าง การแปลงข้อมูล (เช่น Dot Notation) ควรทำในส่วนของ Controller
 
@@ -32,6 +32,9 @@
     - ใช้ PascalCase สำหรับชื่อ Model/Class
 - **Separation of Concerns**:
     - **ห้าม** เขียน Business Logic ไว้ในไฟล์ Route ให้แยกไปไว้ใน Controller เสมอ
+- **Centralized Constants Management**:
+    - **ต้อง** ใช้ค่าคงที่จาก `src/constants` แทนการพิมพ์ String เอง (Magic Strings) สำหรับค่าที่มีความสำคัญ เช่น สถานะออเดอร์, บทความ, หรือบทบาทผู้ใช้
+    - **ประโยชน์**: ป้องกันการพิมพ์ผิด (Typos), แก้ไขที่เดียวจบ (Single Source of Truth), และช่วยให้ IDE แนะนำ Code ได้แม่นยำขึ้น
 - **Error Handling & Database**:
     - **ต้อง** ใช้ Centralized Error Handler โดยการเรียก `next(error)` ใน Controller
     - **ห้าม** เขียน `res.status(500).json(...)` ซ้ำๆ ในแต่ละ Controller
@@ -52,16 +55,7 @@
 - **Business Logic & Validation**:
     - **ห้าม** ใช้การเซฟทับค่าเดิม (Value Replacement) ในกรณีที่ผู้ใช้คาดหวังการบวกเพิ่ม เช่น การกด Add to Cart ซ้ำ **ต้อง** ใช้การบวกสะสม (`+=` หรือ `old + new`) เสมอ
     - **ต้อง** ตรวจสอบความถูกต้องแบบครอบคลุม (Comprehensive Validation): การเช็คสต็อกต้องเช็คจาก **"จำนวนรวมทั้งหมดที่จะเกิดขึ้น"** ไม่ใช่เช็คแค่จำนวนที่ส่งมาใหม่ เพื่อป้องกันบั๊กการสั่งของเกินสต็อก (Stock Bypass)
-- **ต้อง** ป้องกันสต็อกติดลบด้วย Atomic Query (Atomic Stock Update): เมื่อหักสต็อก (เช่น ในขั้นตอน Checkout) **ห้าม** ใช้การดึงค่ามาลบใน Memory แล้วเซฟกลับ แต่ต้องใช้คำสั่ง `$inc` ร่วมกับเงื่อนไขตรวจสอบสต็อกในคิวรีเสมอ เพื่อป้องกัน Race Condition และสต็อกติดลบ:
-    ```javascript
-    // ตัวอย่างการหักสต็อกที่ปลอดภัย
-    const updatedProduct = await Product.findOneAndUpdate(
-      { _id: productId, stock: { $gte: quantity } }, // 🔒 ล็อคเงื่อนไข: สต็อกต้องพอหัก
-      { $inc: { stock: -quantity } },                // ⚡ หักลบแบบ Atomic
-      { new: true }
-    );
-    if (!updatedProduct) throw new Error("สินค้าในคลังไม่เพียงพอ");
-    ```
+- **ต้อง** ป้องกันสต็อกติดลบด้วย Atomic Query (Atomic Stock Update): เมื่อหักสต็อก (เช่น ในขั้นตอน Checkout) **ห้าม** ใช้การดึงค่ามาลบใน Memory แล้วเซฟกลับ แต่ต้องใช้คำสั่ง `$inc` ร่วมกับเงื่อนไขตรวจสอบสต็อกในคิวรีเดียวเสมอ เพื่อป้องกัน Race Condition และสต็อกติดลบ
 - **ต้อง** ใช้รูปแบบการเลือกที่อยู่แบบยืดหยุ่น (Flexible Address Selection): ในขั้นตอน Checkout ระบบต้องรองรับการระบุที่อยู่ 3 รูปแบบ โดยมีลำดับความสำคัญ (Priority) ดังนี้:
     1.  **Manual Address**: หากมีการส่งข้อมูลที่อยู่ใหม่มา ให้ใช้ข้อมูลนั้นทันที
     2.  **Saved Address ID**: หากไม่มีการส่งที่อยู่ใหม่มา แต่มี `addressId` ให้ไปดึงข้อมูลจาก Profile ผู้ใช้
@@ -111,6 +105,63 @@
     - **ต้อง** ใช้ `dotenv` ในการจัดการ Environment Variables เพื่อความยืดหยุ่นระหว่าง Local และ Production (Render)
     - **ห้าม** ใช้ `--env-file=.env` ใน `package.json` สำหรับ Production เพราะจะทำให้แอปพังหากหาไฟล์ไม่เจอ
 
+---
+
+## 💎 Advanced Backend Disciplines & Universal Best Practices (Master Blueprint)
+
+นี่คือ "หัวใจ" ของการสร้าง Backend ระดับ Professional ที่ยืดหยุ่นและนำไปใช้ได้กับทุกโปรเจกต์ (Universal Pattern):
+
+### 1. Atomic State Management (กฎเหล็กเรื่องเงินและสต็อก)
+*   **The Problem:** การดึงข้อมูลออกมาคำนวณใน Code แล้วเซฟกลับ (Read-Modify-Write) จะเกิด Race Condition เมื่อมีการเรียกพร้อมกัน
+*   **The Discipline:** **ห้าม** คำนวณใน Memory สำหรับค่าวิกฤต ให้ใช้คำสั่งระดับ Database (Atomic Operations) เสมอ
+    *   **Example:** ใช้ `$inc` ใน MongoDB หรือ `UPDATE ... SET stock = stock - 1` ใน SQL พร้อมเงื่อนไขการตรวจสอบในคิวรีเดียว
+*   **Best Practice:** ตรวจสอบเงื่อนไขควบคู่ไปกับการอัปเดตเสมอ (เช่น `stock: { $gte: quantity }`) เพื่อความปลอดภัย 100%
+
+### 2. Idempotency & Double-Action Protection (การป้องกันการทำงานซ้ำ)
+*   **The Problem:** ผู้ใช้กดปุ่มรัวๆ หรือ Network กระตุกทำให้ Request ส่งมาซ้ำ (Double Submission)
+*   **The Discipline:** ทุก API ที่มีการเปลี่ยนแปลงข้อมูล (Mutation) **ต้อง** มีการตรวจสอบสถานะก่อนทำเสมอ
+    *   **Atomic Lock:** ใช้ `findOneAndUpdate` เพื่อ "ล็อก" สถานะเดิมก่อนเปลี่ยนเป็นสถานะใหม่ หากสถานะเปลี่ยนไปแล้ว Request ที่สองจะหาไม่พบและไม่เกิดการทำงานเบิ้ล
+*   **Universal Tool:** สำหรับโปรเจกต์ขนาดใหญ่ ควรใช้ **Idempotency-Key** ใน Header เพื่อระบุ Request ที่เป็นตัวเดียวกัน
+
+### 3. Data Snapshotting (การรักษาสัจจะของข้อมูลในอดีต)
+*   **The Problem:** หากลูกค้าซื้อของราคา 100 บาท แล้วเดือนหน้าเราเปลี่ยนราคาเป็น 200 บาท ออเดอร์ในอดีตจะเปลี่ยนตาม (ซึ่งผิด!)
+*   **The Discipline:** ข้อมูลที่เป็น Transaction (Order, Invoice, Receipt) **ห้าม** ใช้การ Reference ไปยังตารางหลักเพียงอย่างเดียว
+*   **Best Practice:** **ต้อง** ทำการ Copy ข้อมูลสำคัญ (Price, Name, Image, Address) ลงในก้อนข้อมูล Transaction นั้นๆ ทันที ณ วินาทีที่เกิดรายการ
+
+### 4. Input Sanitization & Normalization (กฎความสะอาดของข้อมูล)
+*   **The Discipline:** "Never Trust User Input" ข้อมูลจาก Frontend ต้องถูกขัดเกลาก่อนเข้าสู่ระบบเสมอ
+*   **Mandatory Rules:**
+    1.  **Trim Everywhere:** ตัดช่องว่างหัว-ท้ายของ String ทุกตัว เพื่อป้องกันบั๊กการค้นหา
+    2.  **Case Normalization:** อีเมลและ Username ควรถูกทำเป็น `.toLowerCase()` เพื่อความเป็น SSOT
+    3.  **Strict Regex:** ใช้ Regex มาตรฐานที่ยืดหยุ่น (Flexible Regex) ไม่ปิดกั้น Case พิเศษโดยไม่จำเป็น
+    4.  **Numeric Sanitization:** ลบคอมม่า (,) ออกจากตัวเลขที่ส่งมาจาก FormData ก่อนคำนวณ
+
+### 5. Double-Lock Resource Cleanup (การล้างทรัพยากรแบบประกันสองชั้น)
+*   **The Discipline:** การล้างข้อมูลสำคัญ (เช่น ตะกร้าสินค้าหลังจ่ายเงิน) ไม่ควรฝากความหวังไว้ที่ฝั่งใดฝั่งหนึ่ง
+*   **Step 1 (Backend Driven):** ล้างทันทีใน Logic ที่ประมวลผลสำเร็จ (เช่น หลังอัปเดตสถานะออเดอร์)
+*   **Step 2 (Frontend Driven):** ล้างซ้ำเมื่อผู้ใช้ไปถึงหน้า Success (ช่วยรองรับกรณี Network Backend ตอบกลับช้าแต่ DB อัปเดตไปแล้ว)
+
+### 6. Error Handling Architecture (การสื่อสารที่ชัดเจน)
+*   **The Discipline:** Error Message ต้องสื่อสารให้ผู้ใช้รู้ว่า "ต้องทำอะไรต่อ" ไม่ใช่แค่บอกว่า "มีอะไรพัง"
+*   **Best Practice:** แยก Error ตามสถานะ HTTP ที่ถูกต้อง:
+    *   **400 (Bad Request):** ข้อมูลผิดพลาด (บอกจุดที่ผิด)
+    *   **401 (Unauthorized):** ไม่ได้ล็อกอิน
+    *   **403 (Forbidden):** ไม่มีสิทธิ์ (Admin Only)
+    *   **409 (Conflict):** ข้อมูลซ้ำ (Email already exists)
+    *   **429 (Too Many Requests):** ยิงรัวเกินไป (Rate Limit)
+
+---
+
+## ⚠️ ข้อควรระวังวิกฤต (Critical Precautions)
+
+1.  **Hardcoded Values:** ห้ามใช้ String หรือตัวเลขดิบๆ ในการเช็คสถานะ ให้รวมศูนย์ไว้ที่ **Constants** เท่านั้น
+2.  **N+1 Query:** ระวังการรัน Query ภายใน Loop ให้ใช้ **Bulk Write** หรือ `$in` แทนเสมอ
+3.  **Collection Scan:** ทุก Field ที่ใช้เป็นเงื่อนไขในการค้นหา (Filter) **ต้อง** มีการทำ **Index** ใน Database
+4.  **Sensitive Data:** ห้ามส่ง Password หรือข้อมูลส่วนตัวที่ไม่จำเป็นกลับไปใน API Response (ใช้ `select: false` หรือ Filter ออก)
+5.  **Unprotected Admin Routes:** ทุก API ของ Admin **ต้อง** ผ่าน Middleware ตรวจสอบสิทธิ์ (Protect & Admin Role) ห้ามละเลยโดยเด็ดขาด
+
+---
+
 ## ข้อสังเกตและจุดที่ควรปรับปรุง
 
 - โฟลเดอร์และโครงสร้างไฟล์ถูกปรับปรุงให้เป็นระเบียบตามมาตรฐานล่าสุดแล้ว
@@ -119,4 +170,3 @@
 - โปรเจกต์กำลังโฟกัสที่การพัฒนาบน **API v1** เป็นหลัก
 
 ---
-

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { PRODUCT_STATUS, CATEGORIES } from '../constants/index.js';
 
 const imageSchema = new mongoose.Schema({
     url: {
@@ -14,7 +15,8 @@ const imageSchema = new mongoose.Schema({
 const productSchema = new mongoose.Schema({
     brand: {
         type: String,
-        required: [true, 'Please add a brand']
+        required: [true, 'Please add a brand'],
+        index: true
     },
     modelName: {
         type: String,
@@ -42,7 +44,7 @@ const productSchema = new mongoose.Schema({
     category: {
         type: String,
         required: [true, 'Please add a category'],
-        enum: ['Notebook', 'Keyboard', 'Computer', 'Monitor', 'Gaming Mouse', 'Graphics Card', 'RAM', 'CPU', 'Mainboard'],
+        enum: CATEGORIES,
         index: true
     },
     tags: {
@@ -60,10 +62,10 @@ const productSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Please add product status'],
         enum: {
-            values: ['active', 'inactive', 'draft'],
-            message: 'Status must be active, inactive, or draft'
+            values: Object.values(PRODUCT_STATUS),
+            message: `Status must be ${Object.values(PRODUCT_STATUS).join(', ')}`
         },
-        default: 'active',
+        default: PRODUCT_STATUS.ACTIVE,
         index: true
     },
     isFeatured: {

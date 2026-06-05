@@ -5,12 +5,14 @@ import Product from '../../models/product.model.js';
 // @access  Public
 export const getProducts = async (req, res, next) => {
     try {
-        // 1. กรองเฉพาะสินค้าที่สถานะเป็น 'active' เท่านั้น (Public)
-        const queryObj = { status: 'active' };
+        // 1. กรองสินค้าที่พร้อมแสดงผล (Active หรือ Out of Stock)
+        const queryObj = { 
+            status: { $in: ['active', 'out_of_stock'] } 
+        };
 
-        // 2. กรองตามหมวดหมู่หลัก (Category)
-        if (req.query.category) {
-            queryObj.category = req.query.category;
+        // 2. กรองตามหมวดหมู่หลัก (Category) - รองรับ Case Insensitive
+        if (req.query.category && req.query.category !== 'All') {
+            queryObj.category = { $regex: `^${req.query.category}$`, $options: 'i' };
         }
 
         // 3. กรองสินค้าแนะนำ (isFeatured)
@@ -115,6 +117,46 @@ export const getProduct = async (req, res, next) => {
         res.status(200).json({
             success: true,
             data: product
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get all unique categories
+// @route   GET /api/v1/products/categories
+// @access  Public
+export const getCategories = async (req, res, next) => {
+    try {
+        const categories = await Product.distinct('category', { 
+            status: { $in: ['active', 'out_of_stock'] } 
+        });
+        res.status(200).json({
+            success: true,
+            data: categories
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get all unique brands (optionally filtered by category)
+// @route   GET /api/v1/products/brands
+// @access  Public
+export const getBrands = async (req, res, next) => {
+    try {
+        const queryObj = { 
+            status: { $in: ['active', 'out_of_stock'] } 
+        };
+
+        if (req.query.category && req.query.category !== 'All') {
+            queryObj.category = { $regex: `^${req.query.category}$`, $options: 'i' };
+        }
+
+        const brands = await Product.distinct('brand', queryObj);
+        res.status(200).json({
+            success: true,
+            data: brands
         });
     } catch (error) {
         next(error);

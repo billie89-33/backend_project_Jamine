@@ -13,6 +13,15 @@ GET {{baseUrl}}/products?inStock=true&minPrice=10000&maxPrice=50000
 ### 1.3 Pagination
 GET {{baseUrl}}/products?page=1&limit=5
 
+### 1.4 Get Unique Categories
+GET {{baseUrl}}/products/categories
+
+### 1.5 Get Unique Brands
+GET {{baseUrl}}/products/brands
+
+### 1.6 Get Unique Brands by Category
+GET {{baseUrl}}/products/brands?category=Notebook
+
 ### 2. Get Single Product (Detail with full specifications Map)
 # แทนที่ :id ด้วย ID จริง
 @productId = 6a12cb941f43c23b670d75b0

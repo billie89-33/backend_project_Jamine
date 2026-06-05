@@ -1,5 +1,6 @@
 import Cart from '../../models/cart.model.js';
 import Product from '../../models/product.model.js';
+import { PRODUCT_STATUS } from '../../constants/index.js';
 
 /**
  * @desc    Helper function to calculate cart totals based on DB prices
@@ -12,7 +13,7 @@ const validateAndCalculateCart = async (items, autoAdjust = false) => {
 
     const productIds = items.map(item => item.productId._id || item.productId);
     // ดึงข้อมูลสินค้าเฉพาะที่ active เท่านั้น (ถ้า inactive หรือ draft จะไม่ถูกดึงมา)
-    const products = await Product.find({ _id: { $in: productIds }, status: 'active' }).lean();
+    const products = await Product.find({ _id: { $in: productIds }, status: PRODUCT_STATUS.ACTIVE }).lean();
     const productMap = new Map(products.map(p => [p._id.toString(), p]));
 
     for (const item of items) {

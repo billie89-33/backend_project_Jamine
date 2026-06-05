@@ -1,5 +1,25 @@
 import Product from '../../../models/product.model.js';
 import cloudinary from '../../../config/cloudinary.js';
+import { CATEGORIES } from '../../../constants/index.js';
+
+// Helper for Data Normalization
+const normalizeProductData = (data) => {
+    // 1. Normalize Brand (Trim and Capitalize first letter of each word as a general rule, or just trim)
+    if (data.brand) {
+        data.brand = data.brand.trim();
+    }
+
+    // 2. Normalize Category (Match against enum case-insensitively)
+    if (data.category) {
+        const categoryTrimmed = data.category.trim();
+        const matchedCategory = CATEGORIES.find(
+            c => c.toLowerCase() === categoryTrimmed.toLowerCase()
+        );
+        // If matched, use the canonical version from enum, else use trimmed input
+        data.category = matchedCategory || categoryTrimmed;
+    }
+    return data;
+};
 
 // @desc    Get all products (Admin version - sees all statuses)
 // @route   GET /api/v1/admin/products
@@ -51,7 +71,10 @@ export const getAdminProducts = async (req, res, next) => {
 // @access  Private (Admin only)
 export const createProduct = async (req, res, next) => {
     try {
-        const productData = { ...req.body };
+        let productData = { ...req.body };
+
+        // 0. Data Normalization
+        productData = normalizeProductData(productData);
 
         // 1. Image handling (Multer)
         if (req.file) {
@@ -113,6 +136,9 @@ export const updateProduct = async (req, res, next) => {
         const updateData = {};
         const unsetObj = {};
 
+        // 0. Data Normalization (for brand/category if they exist in body)
+        const normalizedBody = normalizeProductData({ ...req.body });
+
         // 1. Image Update (ถ้ามีไฟล์ใหม่มา)
         if (req.file) {
             if (existingProduct.image?.publicId) {
@@ -150,8 +176,8 @@ export const updateProduct = async (req, res, next) => {
         // 4. Map อื่นๆ ที่เหลือจาก req.body (สกัดเอาเฉพาะฟิลด์ที่มีค่ามาจริงๆ)
         const fields = ['brand', 'modelName', 'description', 'sku', 'price', 'stock', 'category', 'status', 'isFeatured'];
         fields.forEach(field => {
-            if (req.body[field] !== undefined) {
-                let val = req.body[field];
+            if (normalizedBody[field] !== undefined) {
+                let val = normalizedBody[field];
                 if (field === 'price' || field === 'stock') val = Number(val);
                 if (field === 'isFeatured') val = (val === 'true' || val === true);
                 updateData[field] = val;

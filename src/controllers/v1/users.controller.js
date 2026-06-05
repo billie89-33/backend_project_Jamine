@@ -1,5 +1,6 @@
 import User from '../../models/user.model.js';
 import generateToken from '../../utils/generateToken.js';
+import { USER_ROLES } from '../../constants/index.js';
 
 // Helper function to format user response
 const formatUserResponse = (user) => {
@@ -68,7 +69,7 @@ export const registerUser = async (req, res, next) => {
             username,
             email: email.toLowerCase(),
             password,
-            role: role || 'user'
+            role: role || USER_ROLES.USER
         });
 
         if (user) {

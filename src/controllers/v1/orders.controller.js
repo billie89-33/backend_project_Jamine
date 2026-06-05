@@ -1,6 +1,7 @@
 import Order from '../../models/order.model.js';
 import Product from '../../models/product.model.js';
 import Cart from '../../models/cart.model.js';
+import { ORDER_STATUS, PRODUCT_STATUS } from '../../constants/index.js';
 
 // @desc    Helper Function: กวาดล้างออเดอร์หมดอายุ (Auto-Timeout Order)
 //          ทำงานแบบ Lazy เช็คทุกครั้งที่มีคนเรียก API ที่เกี่ยวข้อง
@@ -10,7 +11,7 @@ const checkAndExpireOrders = async () => {
 
         // 1. ค้นหาออเดอร์ที่หมดอายุเบื้องต้น
         const candidateOrders = await Order.find({
-            status: 'Awaiting Payment',
+            status: ORDER_STATUS.PENDING,
             expiresAt: { $lt: now }
         }).select('_id items').lean();
 
@@ -23,8 +24,8 @@ const checkAndExpireOrders = async () => {
         // เพื่อให้มั่นใจว่า Request นี้เป็นคนเดียวที่ "ปิด" ออเดอร์นี้ได้
         for (const order of candidateOrders) {
             const lockedOrder = await Order.findOneAndUpdate(
-                { _id: order._id, status: 'Awaiting Payment' }, // 🔒 ล็อกสถานะเดิม
-                { $set: { status: 'Cancelled' } },             // ⚡ เปลี่ยนสถานะ
+                { _id: order._id, status: ORDER_STATUS.PENDING }, // 🔒 ล็อกสถานะเดิม
+                { $set: { status: ORDER_STATUS.CANCELLED } },             // ⚡ เปลี่ยนสถานะ
                 { new: true }
             ).select('_id').lean();
 
@@ -99,15 +100,15 @@ export const createOrder = async (req, res, next) => {
         // ป้องกันบั๊กการกด Checkout รัวๆ แล้วจองสต็อกซ้ำซ้อน (Inventory Leak)
         const existingPendingOrders = await Order.find({
             userId: req.user._id,
-            status: 'Awaiting Payment'
+            status: ORDER_STATUS.PENDING
         }).select('_id items').lean();
 
         if (existingPendingOrders.length > 0) {
             const bulkRestockOps = [];
             for (const order of existingPendingOrders) {
                 const lockedOrder = await Order.findOneAndUpdate(
-                    { _id: order._id, status: 'Awaiting Payment' },
-                    { $set: { status: 'Cancelled' } },
+                    { _id: order._id, status: ORDER_STATUS.PENDING },
+                    { $set: { status: ORDER_STATUS.CANCELLED } },
                     { new: true }
                 ).select('_id').lean();
 
@@ -136,7 +137,7 @@ export const createOrder = async (req, res, next) => {
 
         const productIds = cart.items.map(item => item.productId);
         // ดึงเฉพาะสินค้าที่ Active เท่านั้น
-        const products = await Product.find({ _id: { $in: productIds }, status: 'active' }).lean();
+        const products = await Product.find({ _id: { $in: productIds }, status: PRODUCT_STATUS.ACTIVE }).lean();
         const productMap = new Map(products.map(p => [p._id.toString(), p]));
 
         const orderItems = [];
@@ -153,7 +154,7 @@ export const createOrder = async (req, res, next) => {
                 }
 
                 const updatedProduct = await Product.findOneAndUpdate(
-                    { _id: product._id, stock: { $gte: cartItem.quantity }, status: 'active' }, // 🔒 ล็อกเงื่อนไขสต็อกและสถานะ
+                    { _id: product._id, stock: { $gte: cartItem.quantity }, status: PRODUCT_STATUS.ACTIVE }, // 🔒 ล็อกเงื่อนไขสต็อกและสถานะ
                     { $inc: { stock: -cartItem.quantity } },
                     { new: true }
                 ).select('_id').lean();
@@ -219,7 +220,7 @@ export const createOrder = async (req, res, next) => {
             subtotal,
             shippingFee,
             total,
-            status: 'Awaiting Payment',
+            status: ORDER_STATUS.PENDING,
             expiresAt
         });
 
@@ -271,40 +272,50 @@ export const mockPayment = async (req, res, next) => {
         // เช็คเผื่อออเดอร์หมดอายุไปแล้วระหว่างที่กำลังจะกดจ่าย
         await checkAndExpireOrders();
 
-        const order = await Order.findOne({
-            _id: req.params.orderId,
-            userId: req.user._id
-        });
+        // 🔒 ATOMIC LOCK: เปลี่ยนสถานะเป็น Paid เฉพาะในกรณีที่ยังเป็น Pending เท่านั้น
+        // ป้องกัน Race Condition และ Double Submission ในระดับ Database
+        const order = await Order.findOneAndUpdate(
+            { 
+                _id: req.params.orderId, 
+                userId: req.user._id, 
+                status: ORDER_STATUS.PENDING 
+            },
+            { 
+                $set: { 
+                    status: ORDER_STATUS.PAID,
+                    paymentDetails: {
+                        method: 'PromptPay (Mock)',
+                        paidAt: new Date(),
+                        transactionId: `MOCK-TXN-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+                    }
+                } 
+            },
+            { new: true }
+        );
 
         if (!order) {
-            return res.status(404).json({ success: false, message: 'Order not found' });
+            // เช็คว่าทำไมถึงหาไม่เจอ: ไม่มีออเดอร์ หรือจ่ายไปแล้ว หรือโดนยกเลิก
+            const existingOrder = await Order.findOne({ _id: req.params.orderId, userId: req.user._id });
+            
+            if (!existingOrder) {
+                return res.status(404).json({ success: false, message: 'Order not found' });
+            }
+
+            if (existingOrder.status === ORDER_STATUS.PAID) {
+                return res.status(200).json({ 
+                    success: true, 
+                    message: 'ออเดอร์นี้ถูกชำระเงินไปเรียบร้อยแล้ว (Already Paid)', 
+                    data: existingOrder 
+                });
+            }
+
+            if (existingOrder.status === ORDER_STATUS.CANCELLED) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'ไม่สามารถชำระเงินได้ เนื่องจากออเดอร์หมดอายุและถูกยกเลิกไปแล้ว' 
+                });
+            }
         }
-
-        // ตรวจสอบ Idempotency ป้องกันกดรัวๆ ซ้ำซ้อน
-        if (order.status === 'Paid') {
-            return res.status(200).json({ 
-                success: true, 
-                message: 'ออเดอร์นี้ถูกชำระเงินไปเรียบร้อยแล้ว (Already Paid)', 
-                data: order 
-            });
-        }
-
-        if (order.status === 'Cancelled') {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'ไม่สามารถชำระเงินได้ เนื่องจากออเดอร์หมดอายุและถูกยกเลิกไปแล้ว' 
-            });
-        }
-
-        // เปลี่ยนสถานะ และบันทึกหลักฐานการชำระเงินจำลอง (Payment Evidence)
-        order.status = 'Paid';
-        order.paymentDetails = {
-            method: 'PromptPay (Mock)',
-            paidAt: new Date(),
-            transactionId: `MOCK-TXN-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
-        };
-
-        await order.save();
 
         // 🌟 BEST SELLER LOGIC: อัปเดตยอดขาย (soldCount) เมื่อชำระเงินสำเร็จ
         const bulkSoldOps = order.items.map(item => ({
