@@ -1,6 +1,7 @@
 import Order from '../../../models/order.model.js';
 import Product from '../../../models/product.model.js';
 import User from '../../../models/user.model.js';
+import { ORDER_STATUS, PRODUCT_STATUS } from '../../../constants/index.js';
 
 /**
  * @desc    Get dashboard summary statistics
@@ -37,7 +38,7 @@ export const getDashboardSummary = async (req, res, next) => {
 
         // 1. Balance (Revenue from Paid orders)
         const revenueData = await Order.aggregate([
-            { $match: { status: 'Paid' } },
+            { $match: { status: ORDER_STATUS.PAID } },
             {
                 $facet: {
                     current: [
@@ -147,7 +148,7 @@ export const getLowStockProducts = async (req, res, next) => {
         const threshold = parseInt(req.query.threshold, 10) || 5;
         const products = await Product.find({ 
             stock: { $lt: threshold },
-            status: 'active' 
+            status: PRODUCT_STATUS.ACTIVE 
         })
         .sort('stock')
         .limit(10)
@@ -297,7 +298,7 @@ export const getRevenueChart = async (req, res, next) => {
         }
 
         const chartData = await Order.aggregate([
-            { $match: { status: 'Paid', createdAt: { $gte: startDate } } },
+            { $match: { status: ORDER_STATUS.PAID, createdAt: { $gte: startDate } } },
             {
                 $group: {
                     _id: { $dateToString: { format: groupByFormat, date: '$createdAt' } },
@@ -356,7 +357,7 @@ export const getCategorySales = async (req, res, next) => {
         }
 
         const categorySales = await Order.aggregate([
-            { $match: { status: 'Paid', createdAt: { $gte: startDate } } },
+            { $match: { status: ORDER_STATUS.PAID, createdAt: { $gte: startDate } } },
             { $unwind: '$items' },
             {
                 $lookup: {

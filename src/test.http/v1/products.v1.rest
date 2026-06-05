@@ -22,6 +22,9 @@ GET {{baseUrl}}/products/brands
 ### 1.6 Get Unique Brands by Category
 GET {{baseUrl}}/products/brands?category=Notebook
 
+### 1.7 Get Unique Specification Keys by Category (For Auto-fill Template)
+GET {{baseUrl}}/products/spec-keys?category=Notebook
+
 ### 2. Get Single Product (Detail with full specifications Map)
 # แทนที่ :id ด้วย ID จริง
 @productId = 6a12cb941f43c23b670d75b0

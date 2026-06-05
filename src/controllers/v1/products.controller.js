@@ -1,4 +1,5 @@
 import Product from '../../models/product.model.js';
+import { PRODUCT_STATUS } from '../../constants/index.js';
 
 // @desc    Get all products
 // @route   GET /api/v1/products
@@ -7,7 +8,7 @@ export const getProducts = async (req, res, next) => {
     try {
         // 1. กรองสินค้าที่พร้อมแสดงผล (Active หรือ Out of Stock)
         const queryObj = { 
-            status: { $in: ['active', 'out_of_stock'] } 
+            status: { $in: [PRODUCT_STATUS.ACTIVE, PRODUCT_STATUS.OUT_OF_STOCK] } 
         };
 
         // 2. กรองตามหมวดหมู่หลัก (Category) - รองรับ Case Insensitive
@@ -129,7 +130,7 @@ export const getProduct = async (req, res, next) => {
 export const getCategories = async (req, res, next) => {
     try {
         const categories = await Product.distinct('category', { 
-            status: { $in: ['active', 'out_of_stock'] } 
+            status: { $in: [PRODUCT_STATUS.ACTIVE, PRODUCT_STATUS.OUT_OF_STOCK] } 
         });
         res.status(200).json({
             success: true,
@@ -146,10 +147,12 @@ export const getCategories = async (req, res, next) => {
 export const getBrands = async (req, res, next) => {
     try {
         const queryObj = { 
-            status: { $in: ['active', 'out_of_stock'] } 
+            status: { $in: [PRODUCT_STATUS.ACTIVE, PRODUCT_STATUS.OUT_OF_STOCK] } 
         };
 
         if (req.query.category && req.query.category !== 'All') {
+            // Performance Optimization: Use exact match first if possible
+            // If the frontend sends the canonical category name, this is much faster than regex
             queryObj.category = { $regex: `^${req.query.category}$`, $options: 'i' };
         }
 
@@ -157,6 +160,48 @@ export const getBrands = async (req, res, next) => {
         res.status(200).json({
             success: true,
             data: brands
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get all unique specification keys used in a category
+// @route   GET /api/v1/products/spec-keys
+// @access  Public
+export const getSpecKeys = async (req, res, next) => {
+    try {
+        const { category } = req.query;
+
+        if (!category) {
+            const error = new Error('Category is required');
+            error.status = 400;
+            return next(error);
+        }
+
+        const queryObj = { 
+            category: { $regex: `^${category}$`, $options: 'i' },
+            status: { $in: [PRODUCT_STATUS.ACTIVE, PRODUCT_STATUS.OUT_OF_STOCK] }
+        };
+
+        // 🔥 ใช้ Aggregation เพื่อสกัด Key ออกจาก Map 'specifications'
+        const result = await Product.aggregate([
+            { $match: queryObj },
+            { 
+                $project: { 
+                    specs: { $objectToArray: "$specifications" } 
+                } 
+            },
+            { $unwind: "$specs" },
+            { $group: { _id: "$specs.k" } },
+            { $sort: { _id: 1 } }
+        ]);
+
+        const keys = result.map(item => item._id);
+
+        res.status(200).json({
+            success: true,
+            data: keys
         });
     } catch (error) {
         next(error);

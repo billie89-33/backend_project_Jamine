@@ -27,7 +27,7 @@ const validateAndCalculateCart = async (items, autoAdjust = false) => {
 
             if (product.stock < item.quantity) {
                 isAdjusted = true;
-                stockStatus = product.stock === 0 ? 'out_of_stock' : 'insufficient';
+                stockStatus = product.stock === 0 ? PRODUCT_STATUS.OUT_OF_STOCK : 'insufficient';
                 if (autoAdjust) finalQuantity = product.stock;
             }
 
@@ -47,7 +47,7 @@ const validateAndCalculateCart = async (items, autoAdjust = false) => {
                     productId: product._id,
                     quantity: item.quantity,
                     priceAtCalculation: product.price,
-                    stockStatus: 'out_of_stock',
+                    stockStatus: PRODUCT_STATUS.OUT_OF_STOCK,
                     availableStock: product.stock
                 });
             }

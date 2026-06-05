@@ -26,10 +26,6 @@ export const validateProduct = (data, isUpdate = false) => {
         errors.push('Stock cannot be negative');
     }
 
-    if (data.category && !categories.includes(data.category)) {
-        errors.push(`Invalid category. Must be one of: ${categories.join(', ')}`);
-    }
-
     if (data.status && !statuses.includes(data.status)) {
         errors.push(`Invalid status. Must be one of: ${statuses.join(', ')}`);
     }

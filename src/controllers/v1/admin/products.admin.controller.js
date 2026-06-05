@@ -4,20 +4,34 @@ import { CATEGORIES } from '../../../constants/index.js';
 
 // Helper for Data Normalization
 const normalizeProductData = (data) => {
-    // 1. Normalize Brand (Trim and Capitalize first letter of each word as a general rule, or just trim)
-    if (data.brand) {
-        data.brand = data.brand.trim();
-    }
+    // 1. Normalize Brand & Category
+    const fieldsToNormalize = ['brand', 'category'];
+    const abbreviations = ['RAM', 'CPU', 'GPU', 'VGA', 'SSD', 'HDD', 'RGB', 'PSU', 'UPS'];
 
-    // 2. Normalize Category (Match against enum case-insensitively)
-    if (data.category) {
-        const categoryTrimmed = data.category.trim();
-        const matchedCategory = CATEGORIES.find(
-            c => c.toLowerCase() === categoryTrimmed.toLowerCase()
-        );
-        // If matched, use the canonical version from enum, else use trimmed input
-        data.category = matchedCategory || categoryTrimmed;
-    }
+    fieldsToNormalize.forEach(field => {
+        if (data[field]) {
+            let val = data[field].trim();
+            
+            // Check if it's an abbreviation
+            const upperVal = val.toUpperCase();
+            if (abbreviations.includes(upperVal)) {
+                data[field] = upperVal;
+            } else {
+                // Title Case: "gaming mouse" -> "Gaming Mouse"
+                data[field] = val.split(' ')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                    .join(' ');
+            }
+
+            // Sync with CATEGORIES enum if exists (canonical version)
+            if (field === 'category') {
+                const matchedCategory = CATEGORIES.find(
+                    c => c.toLowerCase() === val.toLowerCase()
+                );
+                if (matchedCategory) data[field] = matchedCategory;
+            }
+        }
+    });
     return data;
 };
 
