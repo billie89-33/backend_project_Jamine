@@ -280,6 +280,80 @@ export const addAddress = async (req, res, next) => {
     }
 };
 
+// @desc    Update an address in user profile
+// @route   PUT /api/v1/users/addresses/:addressId
+// @access  Private
+export const updateAddress = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+        const address = user.addresses.id(req.params.addressId);
+        if (!address) {
+            return res.status(404).json({ success: false, message: 'Address not found' });
+        }
+
+        // อัปเดตฟิลด์ที่ส่งมา
+        const fields = ['fullName', 'phone', 'address', 'province', 'district', 'subDistrict', 'postalCode', 'isDefault'];
+        fields.forEach(field => {
+            if (req.body[field] !== undefined) {
+                address[field] = req.body[field];
+            }
+        });
+
+        // ถ้าตั้งเป็น default ให้เอา default อันอื่นออก
+        if (req.body.isDefault) {
+            user.addresses.forEach(addr => {
+                if (addr._id.toString() !== req.params.addressId) {
+                    addr.isDefault = false;
+                }
+            });
+        }
+
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'อัปเดตที่อยู่สำเร็จ',
+            data: user.addresses
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Set an address as default
+// @route   PATCH /api/v1/users/addresses/:addressId/default
+// @access  Private
+export const setDefaultAddress = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+        const addressExists = user.addresses.some(
+            addr => addr._id.toString() === req.params.addressId
+        );
+
+        if (!addressExists) {
+            return res.status(404).json({ success: false, message: 'Address not found' });
+        }
+
+        user.addresses.forEach(addr => {
+            addr.isDefault = addr._id.toString() === req.params.addressId;
+        });
+
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'ตั้งเป็นที่อยู่หลักเรียบร้อยแล้ว',
+            data: user.addresses
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 // @desc    Delete an address from user profile
 // @route   DELETE /api/v1/users/addresses/:addressId
 // @access  Private

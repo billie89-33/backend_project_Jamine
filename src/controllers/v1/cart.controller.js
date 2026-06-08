@@ -1,6 +1,7 @@
 import Cart from '../../models/cart.model.js';
 import Product from '../../models/product.model.js';
 import { PRODUCT_STATUS } from '../../constants/index.js';
+import { calculateTotals } from '../../utils/orderHelper.js';
 
 /**
  * @desc    Helper function to calculate cart totals based on DB prices
@@ -57,10 +58,14 @@ const validateAndCalculateCart = async (items, autoAdjust = false) => {
         }
     }
 
-    const shippingFee = (subtotal >= 1000 || subtotal === 0) ? 0 : 50;
-    const total = subtotal + shippingFee;
+    // Use Centralized Helper
+    const totals = calculateTotals(subtotal);
 
-    return { validatedItems, subtotal, shippingFee, total, isAdjusted };
+    return { 
+        validatedItems, 
+        ...totals, // includes subtotal, shippingFee, discount, total, totalAmount
+        isAdjusted 
+    };
 };
 
 // @desc    Get user cart
@@ -73,7 +78,11 @@ export const getCart = async (req, res, next) => {
             cart = await Cart.create({ userId: req.user._id, items: [] });
             return res.status(200).json({ 
                 success: true, 
-                data: cart 
+                data: {
+                    ...cart.toObject(),
+                    discount: 0,
+                    totalAmount: 0
+                } 
             });
         }
 
@@ -93,10 +102,16 @@ export const getCart = async (req, res, next) => {
             select: 'modelName price image stock status'
         });
 
+        // Add alias and discount to response
+        const cartObj = cart.toObject();
         res.status(200).json({
             success: true,
             isStockAdjusted: validation.isAdjusted,
-            data: cart
+            data: {
+                ...cartObj,
+                discount: validation.discount,
+                totalAmount: cartObj.total
+            }
         });
     } catch (error) {
         next(error);
@@ -157,10 +172,15 @@ export const addToCart = async (req, res, next) => {
             select: 'modelName price image stock status'
         });
 
+        const cartObj = cart.toObject();
         res.status(200).json({
             success: true,
             isStockAdjusted: validation.isAdjusted,
-            data: cart
+            data: {
+                ...cartObj,
+                discount: validation.discount,
+                totalAmount: cartObj.total
+            }
         });
     } catch (error) {
         next(error);
@@ -210,10 +230,15 @@ export const updateCartQuantity = async (req, res, next) => {
             select: 'modelName price image stock status'
         });
 
+        const cartObj = cart.toObject();
         res.status(200).json({
             success: true,
             isStockAdjusted: validation.isAdjusted,
-            data: cart
+            data: {
+                ...cartObj,
+                discount: validation.discount,
+                totalAmount: cartObj.total
+            }
         });
     } catch (error) {
         next(error);
@@ -252,9 +277,15 @@ export const removeFromCart = async (req, res, next) => {
             select: 'modelName price image stock status'
         });
 
+        const cartObj = cart.toObject();
         res.status(200).json({
             success: true,
-            data: cart
+            isStockAdjusted: validation.isAdjusted,
+            data: {
+                ...cartObj,
+                discount: validation.discount,
+                totalAmount: cartObj.total
+            }
         });
     } catch (error) {
         next(error);
@@ -266,7 +297,7 @@ export const removeFromCart = async (req, res, next) => {
 export const getCartSummary = async (req, res, next) => {
     try {
         const cart = await Cart.findOne({ userId: req.user._id });
-        if (!cart) return res.status(200).json({ success: true, data: { subtotal: 0, shippingFee: 0, total: 0, itemCount: 0 } });
+        if (!cart) return res.status(200).json({ success: true, data: { subtotal: 0, shippingFee: 0, discount: 0, total: 0, totalAmount: 0, itemCount: 0 } });
 
         // 1. ส่งคำนวณสต็อกและค่าเงินล่าสุด
         const validation = await validateAndCalculateCart(cart.items, true);
@@ -292,7 +323,9 @@ export const getCartSummary = async (req, res, next) => {
             data: {
                 subtotal: cart.subtotal,
                 shippingFee: cart.shippingFee,
+                discount: validation.discount,
                 total: cart.total,
+                totalAmount: cart.total, // Alias
                 itemCount: totalPieces // ได้จำนวนชิ้นรวมที่ถูกต้องแล้ว เช่น 5 ชิ้น ไม่ใช่ 2 ชนิด
             }
         });

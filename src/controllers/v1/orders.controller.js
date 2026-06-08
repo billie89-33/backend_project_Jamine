@@ -2,6 +2,7 @@ import Order from '../../models/order.model.js';
 import Product from '../../models/product.model.js';
 import Cart from '../../models/cart.model.js';
 import { ORDER_STATUS, PRODUCT_STATUS } from '../../constants/index.js';
+import { calculateTotals } from '../../utils/orderHelper.js';
 
 // @desc    Helper Function: กวาดล้างออเดอร์หมดอายุ (Auto-Timeout Order)
 //          ทำงานแบบ Lazy เช็คทุกครั้งที่มีคนเรียก API ที่เกี่ยวข้อง
@@ -21,15 +22,13 @@ const checkAndExpireOrders = async () => {
         let expiredCount = 0;
         
         // 2. ล็อกและเปลี่ยนสถานะทีละรายการแบบ Atomic (Race Condition Fix)
-        // เพื่อให้มั่นใจว่า Request นี้เป็นคนเดียวที่ "ปิด" ออเดอร์นี้ได้
         for (const order of candidateOrders) {
             const lockedOrder = await Order.findOneAndUpdate(
-                { _id: order._id, status: ORDER_STATUS.PENDING }, // 🔒 ล็อกสถานะเดิม
-                { $set: { status: ORDER_STATUS.CANCELLED } },             // ⚡ เปลี่ยนสถานะ
+                { _id: order._id, status: ORDER_STATUS.PENDING },
+                { $set: { status: ORDER_STATUS.CANCELLED } },
                 { new: true }
             ).select('_id').lean();
 
-            // ถ้า lockedOrder มีค่า แสดงว่าเราเป็นคน "ปิด" ออเดอร์นี้สำเร็จ -> มีสิทธิ์คืนสต็อก
             if (lockedOrder) {
                 expiredCount++;
                 for (const item of order.items) {
@@ -43,7 +42,7 @@ const checkAndExpireOrders = async () => {
             }
         }
 
-        // 3. ยิงคำสั่งคืนสต็อกสินค้าทั้งหมดในทีเดียว (⚡ Bulk Write - N+1 Query Fix)
+        // 3. ยิงคำสั่งคืนสต็อกสินค้าทั้งหมดในทีเดียว (Bulk Write)
         if (bulkRestockOps.length > 0) {
             await Product.bulkWrite(bulkRestockOps);
         }
@@ -61,13 +60,15 @@ const checkAndExpireOrders = async () => {
 // @access  Private
 export const createOrder = async (req, res, next) => {
     try {
+        // 🟢 Logic การเลือกที่อยู่ (Explicit Selection Logic)
         const { addressId, shippingAddress: manualAddress, clientTotal } = req.body;
         let finalShippingAddress;
 
-        // 🟢 Logic การเลือกที่อยู่
-        if (manualAddress && manualAddress.fullName && manualAddress.phone && manualAddress.address) {
+        if (manualAddress && Object.keys(manualAddress).length > 0) {
+            // กรณีที่ 1: ลูกค้ากรอกที่อยู่ใหม่เอง (Manual) -> ต้องใช้ที่อยู่นี้เท่านั้น ห้าม fallback
             finalShippingAddress = manualAddress;
         } else if (addressId) {
+            // กรณีที่ 2: ลูกค้าเลือกที่อยู่เดิมที่มีอยู่แล้ว -> ต้องหาให้เจอในโปรไฟล์
             const savedAddress = req.user.addresses.find(addr => addr._id.toString() === addressId);
             if (!savedAddress) {
                 const error = new Error('ไม่พบที่อยู่ที่ระบุในโปรไฟล์ของคุณ');
@@ -76,19 +77,20 @@ export const createOrder = async (req, res, next) => {
             }
             finalShippingAddress = savedAddress;
         } else {
-            const defaultAddress = req.user.addresses.find(addr => addr.isDefault) || req.user.addresses[0];
-            if (!defaultAddress) {
-                const error = new Error('กรุณาระบุที่อยู่สำหรับจัดส่ง หรือเพิ่มที่อยู่ในโปรไฟล์ก่อนสั่งซื้อ');
+            // กรณีที่ 3: ไม่ได้ส่งอะไรมาเลย -> ดึงที่อยู่หลัก (Default) หรืออันแรกสุด
+            if (!req.user.addresses || req.user.addresses.length === 0) {
+                const error = new Error('ไม่พบข้อมูลที่อยู่จัดส่ง กรุณาเพิ่มที่อยู่ในโปรไฟล์หรือระบุที่อยู่ใหม่');
                 error.status = 400;
                 return next(error);
             }
-            finalShippingAddress = defaultAddress;
+            finalShippingAddress = req.user.addresses.find(addr => addr.isDefault) || req.user.addresses[0];
         }
 
+        // ตรวจสอบความครบถ้วนของฟิลด์ (ต้องมีครบ 7 ฟิลด์มาตรฐาน)
         const requiredFields = ['fullName', 'phone', 'address', 'province', 'district', 'subDistrict', 'postalCode'];
         for (const field of requiredFields) {
             if (!finalShippingAddress[field]) {
-                const error = new Error(`ข้อมูลที่อยู่ไม่สมบูรณ์: ขาด ${field}`);
+                const error = new Error(`ข้อมูลที่อยู่ไม่สมบูรณ์: ขาดฟิลด์ ${field}`);
                 error.status = 400;
                 return next(error);
             }
@@ -96,8 +98,7 @@ export const createOrder = async (req, res, next) => {
 
         await checkAndExpireOrders();
 
-        // 🟢 On-Demand Cleanup: ยกเลิกออเดอร์เดิมที่ยังค้างชำระของผู้ใช้นี้ เพื่อคืนสต็อกก่อนสร้างออเดอร์ใหม่จากตะกร้า
-        // ป้องกันบั๊กการกด Checkout รัวๆ แล้วจองสต็อกซ้ำซ้อน (Inventory Leak)
+        // 🟢 On-Demand Cleanup
         const existingPendingOrders = await Order.find({
             userId: req.user._id,
             status: ORDER_STATUS.PENDING
@@ -136,7 +137,6 @@ export const createOrder = async (req, res, next) => {
         }
 
         const productIds = cart.items.map(item => item.productId);
-        // ดึงเฉพาะสินค้าที่ Active เท่านั้น
         const products = await Product.find({ _id: { $in: productIds }, status: PRODUCT_STATUS.ACTIVE }).lean();
         const productMap = new Map(products.map(p => [p._id.toString(), p]));
 
@@ -154,7 +154,7 @@ export const createOrder = async (req, res, next) => {
                 }
 
                 const updatedProduct = await Product.findOneAndUpdate(
-                    { _id: product._id, stock: { $gte: cartItem.quantity }, status: PRODUCT_STATUS.ACTIVE }, // 🔒 ล็อกเงื่อนไขสต็อกและสถานะ
+                    { _id: product._id, stock: { $gte: cartItem.quantity }, status: PRODUCT_STATUS.ACTIVE },
                     { $inc: { stock: -cartItem.quantity } },
                     { new: true }
                 ).select('_id').lean();
@@ -178,7 +178,6 @@ export const createOrder = async (req, res, next) => {
                 });
             }
         } catch (error) {
-            // 🚨 Atomic Rollback Mechanism (Bulk Write Fix)
             if (reservedItems.length > 0) {
                 const rollbackOps = reservedItems.map(reserved => ({
                     updateOne: {
@@ -193,10 +192,10 @@ export const createOrder = async (req, res, next) => {
             return next(err);
         }
 
-        const shippingFee = (subtotal >= 1000 || subtotal === 0) ? 0 : 50;
-        const total = subtotal + shippingFee;
+        // Use Centralized Helper
+        const totals = calculateTotals(subtotal);
 
-        if (clientTotal && Number(clientTotal) !== total) {
+        if (clientTotal && Number(clientTotal) !== totals.total) {
             if (reservedItems.length > 0) {
                 const rollbackOps = reservedItems.map(reserved => ({
                     updateOne: {
@@ -217,20 +216,21 @@ export const createOrder = async (req, res, next) => {
             userId: req.user._id,
             items: orderItems,
             shippingAddress: finalShippingAddress,
-            subtotal,
-            shippingFee,
-            total,
+            subtotal: totals.subtotal,
+            shippingFee: totals.shippingFee,
+            discount: totals.discount,
+            total: totals.total,
             status: ORDER_STATUS.PENDING,
             expiresAt
         });
 
-        // 🚨 นำโค้ดล้างตะกร้าออกตามกฎ "Cart as the Last Stand" 
-        // ตะกร้าจะถูกล้างเมื่อสถานะเปลี่ยนเป็น Paid เท่านั้น
-
         res.status(201).json({
             success: true,
             message: 'สร้างออเดอร์สำเร็จ กรุณาชำระเงินภายใน 15 นาที',
-            data: order
+            data: {
+                ...order.toObject(),
+                totalAmount: order.total // Alias for Frontend compatibility
+            }
         });
     } catch (error) {
         next(error);
@@ -244,10 +244,12 @@ export const getOrderById = async (req, res, next) => {
     try {
         await checkAndExpireOrders();
 
+        // NOTE: We rely on snapshot data (brand, modelName, image, priceAtPurchase)
+        // saved in the order items, NOT populated data from Product model.
         const order = await Order.findOne({
             _id: req.params.orderId,
             userId: req.user._id
-        }).populate('items.productId', 'brand modelName image price').lean();
+        }).lean();
 
         if (!order) {
             const error = new Error('ไม่พบรายการคำสั่งซื้อนี้');
@@ -257,7 +259,11 @@ export const getOrderById = async (req, res, next) => {
 
         res.status(200).json({
             success: true,
-            data: order
+            data: {
+                ...order,
+                totalAmount: order.total, // Alias
+                discount: order.discount || 0
+            }
         });
     } catch (error) {
         next(error);
@@ -269,11 +275,8 @@ export const getOrderById = async (req, res, next) => {
 // @access  Private
 export const mockPayment = async (req, res, next) => {
     try {
-        // เช็คเผื่อออเดอร์หมดอายุไปแล้วระหว่างที่กำลังจะกดจ่าย
         await checkAndExpireOrders();
 
-        // 🔒 ATOMIC LOCK: เปลี่ยนสถานะเป็น Paid เฉพาะในกรณีที่ยังเป็น Pending เท่านั้น
-        // ป้องกัน Race Condition และ Double Submission ในระดับ Database
         const order = await Order.findOneAndUpdate(
             { 
                 _id: req.params.orderId, 
@@ -291,11 +294,10 @@ export const mockPayment = async (req, res, next) => {
                 } 
             },
             { new: true }
-        );
+        ).lean();
 
         if (!order) {
-            // เช็คว่าทำไมถึงหาไม่เจอ: ไม่มีออเดอร์ หรือจ่ายไปแล้ว หรือโดนยกเลิก
-            const existingOrder = await Order.findOne({ _id: req.params.orderId, userId: req.user._id });
+            const existingOrder = await Order.findOne({ _id: req.params.orderId, userId: req.user._id }).lean();
             
             if (!existingOrder) {
                 return res.status(404).json({ success: false, message: 'Order not found' });
@@ -305,7 +307,11 @@ export const mockPayment = async (req, res, next) => {
                 return res.status(200).json({ 
                     success: true, 
                     message: 'ออเดอร์นี้ถูกชำระเงินไปเรียบร้อยแล้ว (Already Paid)', 
-                    data: existingOrder 
+                    data: {
+                        ...existingOrder,
+                        totalAmount: existingOrder.total,
+                        discount: existingOrder.discount || 0
+                    } 
                 });
             }
 
@@ -317,7 +323,6 @@ export const mockPayment = async (req, res, next) => {
             }
         }
 
-        // 🌟 BEST SELLER LOGIC: อัปเดตยอดขาย (soldCount) เมื่อชำระเงินสำเร็จ
         const bulkSoldOps = order.items.map(item => ({
             updateOne: {
                 filter: { _id: item.productId },
@@ -329,8 +334,6 @@ export const mockPayment = async (req, res, next) => {
             await Product.bulkWrite(bulkSoldOps);
         }
 
-        // 🧹 DOUBLE-LOCK CART CLEARING (Layer 1 - Backend Driven)
-        // เมื่อชำระเงินสำเร็จ ให้ล้างตะกร้าของ User คนนั้นทันที
         await Cart.findOneAndUpdate(
             { userId: req.user._id }, 
             { $set: { items: [], subtotal: 0, shippingFee: 0, total: 0 } }
@@ -339,7 +342,11 @@ export const mockPayment = async (req, res, next) => {
         res.status(200).json({
             success: true,
             message: 'ชำระเงินสำเร็จ! ยอดขายถูกบันทึกแล้ว',
-            data: order
+            data: {
+                ...order,
+                totalAmount: order.total,
+                discount: order.discount || 0
+            }
         });
     } catch (error) {
         next(error);
