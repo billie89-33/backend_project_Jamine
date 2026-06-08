@@ -1,60 +1,63 @@
-# Jamine Store Backend 🚀
-**High-Performance & Secure E-commerce REST API**
+# Project Jamine - Backend API
 
-โปรเจกต์ Backend สำหรับระบบร้านค้าออนไลน์ พัฒนาด้วย **Node.js, Express และ MongoDB** โดยมุ่งเน้นที่การออกแบบสถาปัตยกรรมที่ยืดหยุ่น (Scalability) และความถูกต้องของข้อมูล (Data Integrity) เป็นสำคัญ
+A high-performance E-commerce backend built with Node.js, Express, and MongoDB. This project focuses on dynamic product management, efficient cart systems, and robust administrative features.
 
----
+## 🚀 Features
 
-## 🛠️ Tech Stack
-- **Runtime:** Node.js (ES Modules)
+- **Dynamic Product Management:** Flexible categorization and smart normalization with automated specification templates.
+- **Advanced Cart & Order System:** Centralized price calculations, multi-level address management, and atomic checkout processes.
+- **Admin Dashboard:** Comprehensive CRUD for products, banners, orders, and user management with analytics-ready endpoints.
+- **Robust Security:** JWT-based authentication, role-based access control (RBAC), and rate limiting.
+- **Cloudinary Integration:** Seamless image hosting and management.
+
+## 🛠 Tech Stack
+
+- **Runtime:** Node.js
 - **Framework:** Express.js
-- **Database:** MongoDB (Mongoose ODM)
-- **Authentication:** JSON Web Token (JWT) with HttpOnly Cookie
-- **Storage:** Cloudinary (Image Cloud Management)
-- **API Testing:** httpyac / REST Client
+- **Database:** MongoDB with Mongoose
+- **Storage:** Cloudinary
+- **Authentication:** JWT (JSON Web Tokens)
+- **Environment Management:** Dotenv
+
+## 📂 Project Structure
+
+- `src/controllers/`: Business logic divided by version (v1/v2) and scope (admin/public).
+- `src/models/`: Mongoose schemas for Users, Products, Orders, Carts, and Banners.
+- `src/routes/`: Express route definitions.
+- `src/middlewares/`: Auth, Upload, Validation, and Error handling.
+- `src/utils/`: Helper functions for tokens, calculations, and keys.
+- `src/constants/`: Centralized status strings and configuration values.
+
+## ⚙️ Setup & Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Environment Configuration:**
+   Create a `.env` file in the root directory based on `.env.example` (if available) and add your credentials:
+   - `PORT=4001`
+   - `MONGODB_URI`
+   - `JWT_SECRET`
+   - `CLOUDINARY_CLOUD_NAME`
+   - `CLOUDINARY_API_KEY`
+   - `CLOUDINARY_API_SECRET`
+
+4. **Run the server:**
+   ```bash
+   npm start
+   ```
+
+## 📜 Documentation
+
+- The API endpoints are documented in `.rest` files within `src/test.http/` for easy testing with VS Code REST Client.
+- Architectural decisions and master skills are maintained locally in the `docs-backend/` directory.
 
 ---
-
-## 🌟 High-Level Engineering Highlights (จุดเด่นทางเทคนิค)
-
-### 1. Single-Step Atomic Upload Pattern
-พัฒนาระบบการจัดการไฟล์อัปโหลดที่รวมการส่งข้อมูลและไฟล์ไว้ใน Request เดียว (`multipart/form-data`) พร้อมระบบ **Atomic Cleanup**:
-- **ความปลอดภัย:** หากการบันทึกฐานข้อมูลล้มเหลว ระบบจะสั่ง Rollback ลบไฟล์ออกจาก Cloudinary ทันที เพื่อป้องกัน Storage Leak (ไฟล์ขยะค้างบน Cloud)
-- **UX:** Frontend จัดการสถานะการส่งข้อมูลได้ง่ายขึ้น ลดขั้นตอนการทำงาน
-
-### 2. Defensive Inventory Management
-ระบบจัดการสต็อกสินค้าที่มีความทนทานสูง:
-- **Stock Reservation:** สินค้าจะถูกจองทันทีเมื่อสร้างออเดอร์ และมีระบบคืนสต็อกอัตโนมัติหากออเดอร์หมดอายุหรือการชำระเงินไม่สำเร็จ
-- **Atomic Stock Update:** ใช้คำสั่ง `$inc` ร่วมกับเงื่อนไขตรวจสอบสต็อกในระดับ Database เพื่อป้องกันปัญหา Race Condition (สต็อกติดลบ)
-
-### 3. Flexible Categorization & Specification
-ออกแบบ Schema ให้รองรับสินค้าที่มีความหลากหลายสูง:
-- **Mongoose Map:** ใช้ Map สำหรับเก็บสเปคสินค้า ช่วยให้แต่ละประเภทสินค้ามีฟิลด์ที่ไม่เหมือนกันได้โดยไม่ต้องแก้ Schema
-- **Partial Update (Dot Notation):** ระบบอัปเดตข้อมูลที่ฉลาด โดยจะแก้ไขเฉพาะฟิลด์ที่ส่งมา ทำให้ข้อมูลส่วนอื่นไม่สูญหาย
-
-### 4. Advanced Security Architecture
-- **Centralized Admin Security:** แยกโมดูล Admin ออกจาก User ปกติชัดเจน และใช้ Middleware ปกป้องทุกเส้นทาง
-- **Token Protection:** เก็บ JWT ใน **HttpOnly Cookie** เพื่อป้องกันการโจมตีประเภท XSS
-- **Storage Protection:** ระบบ Auto-replace รูปเก่าเมื่อมีการอัปเดตรูปใหม่ เพื่อจัดการพื้นที่จัดเก็บอย่างมีประสิทธิภาพ
-
----
-
-## 📋 API Documentation Preview
-ระบบมีการทำเอกสาร API อย่างละเอียด (มีไฟล์ `API_SPEC.md` แยกเฉพาะ) ครอบคลุม:
-- **Authentication:** Login/Register/Logout/Get Me
-- **Cart System:** Add/Update/Remove/Sync Stock
-- **Order Flow:** Checkout/Address Selection/Payment Mockup
-- **Admin Tools:** Full CRUD with Image Processing
-
----
-
-## ⚙️ Installation & Setup
-1. `npm install`
-2. Configure `.env` (ดูตัวอย่างใน README)
-3. `npm run dev` (Development) หรือ `npm start` (Production)
-4. `npm test` เพื่อรัน Automated API Tests
-
----
-
-## 🎯 Engineering Mindset
-โปรเจกต์นี้ไม่ได้ถูกสร้างขึ้นเพื่อเพียงแค่ให้ทำงานได้ (Functionality) แต่ถูกสร้างขึ้นโดยคำนึงถึง **Reliability** และ **Maintainability** เป็นหลัก มีการจัดการ Edge Cases อย่างครอบคลุม เช่น การจัดการไฟล์ขยะ, การตรวจสอบราคาล่าสุดก่อน Checkout, และการทำ Product Snapshotting ในใบสั่งซื้อ
+Developed with focus on **Scalability**, **Maintainability**, and **Developer Experience**.
