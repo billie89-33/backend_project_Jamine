@@ -179,25 +179,47 @@ export const getSpecKeys = async (req, res, next) => {
             return next(error);
         }
 
-        const queryObj = { 
-            category: { $regex: `^${category}$`, $options: 'i' },
-            status: { $in: [PRODUCT_STATUS.ACTIVE, PRODUCT_STATUS.OUT_OF_STOCK] }
-        };
-
-        // 🔥 ใช้ Aggregation เพื่อสกัด Key ออกจาก Map 'specifications'
+        // 🧠 ใช้ MongoDB Aggregation Pipeline เพื่อดึง Unique Keys ออกมาจาก Map 'specifications'
+        // เราไม่กรอง Status ออก เพื่อให้ Admin ได้ Template ที่ครบถ้วนที่สุดจากสินค้าทุกตัวในหมวดนั้น
         const result = await Product.aggregate([
-            { $match: queryObj },
+            // 1. กรองเอาเฉพาะสินค้าในหมวดหมู่ที่เลือก (Case Insensitive)
             { 
-                $project: { 
-                    specs: { $objectToArray: "$specifications" } 
+                $match: { 
+                    category: { $regex: `^${category}$`, $options: 'i' } 
                 } 
             },
-            { $unwind: "$specs" },
-            { $group: { _id: "$specs.k" } },
-            { $sort: { _id: 1 } }
+
+            // 2. แปลง specifications (Map Object) ให้กลายเป็น Array ของ Key
+            { 
+                $project: {
+                    specKeys: {
+                        $map: {
+                            input: { $objectToArray: "$specifications" },
+                            as: "item",
+                            in: "$$item.k"
+                        }
+                    }
+                }
+            },
+
+            // 3. แตก Array ของ Key ให้กลายเป็น Document ย่อยๆ
+            { $unwind: "$specKeys" },
+
+            // 4. จัดกลุ่มกลับมาเพื่อกรองเอาเฉพาะค่าที่ไม่ซ้ำกัน (Unique Keys) และเรียงลำดับ
+            { 
+                $group: {
+                    _id: null,
+                    uniqueKeys: { $addToSet: "$specKeys" }
+                }
+            },
+
+            // 5. ปัดเศษข้อมูลให้เหลือแค่ Array ของ String (Optional: สามารถทำ Sort ที่นี่ได้)
+            { $unwind: "$uniqueKeys" },
+            { $sort: { "uniqueKeys": 1 } },
+            { $group: { _id: null, data: { $push: "$uniqueKeys" } } }
         ]);
 
-        const keys = result.map(item => item._id);
+        const keys = result.length > 0 ? result[0].data : [];
 
         res.status(200).json({
             success: true,

@@ -1,7 +1,7 @@
 @baseUrl = http://localhost:4001/api/v1
 
 ### 1. Get All Products (Public)
-# สังเกตว่าจะไม่ดึง specifications มาด้วย (ประหยัดแบนด์วิดท์)
+# ดึงข้อมูลสินค้าทั้งหมด รวมถึง specifications เพื่อใช้ในระบบ Dynamic Filter
 GET {{baseUrl}}/products
 
 ### 1.1 Get Products by Category
