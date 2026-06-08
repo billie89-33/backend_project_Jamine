@@ -16,6 +16,19 @@ export const getProducts = async (req, res, next) => {
             queryObj.category = { $regex: `^${req.query.category}$`, $options: 'i' };
         }
 
+        // 🌟 กรองตามแบรนด์ (รองรับหลายแบรนด์)
+        if (req.query.brand) {
+            // หน้าบ้านส่งมาเป็น "Logitech,Razer" เราต้องหั่นเป็น Array
+            const brandsArray = req.query.brand.split(',').map(b => b.trim()).filter(Boolean);
+            
+            if (brandsArray.length > 0) {
+                // สร้างเงื่อนไข Regex เพื่อให้ค้นหาแบบ Case Insensitive (ไม่สนพิมพ์เล็ก/ใหญ่)
+                queryObj.brand = { 
+                    $in: brandsArray.map(b => new RegExp(`^${b}$`, 'i')) 
+                };
+            }
+        }
+
         // 3. กรองสินค้าแนะนำ (isFeatured)
         if (req.query.isFeatured) {
             queryObj.isFeatured = req.query.isFeatured === 'true';
