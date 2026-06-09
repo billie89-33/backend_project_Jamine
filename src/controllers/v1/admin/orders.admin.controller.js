@@ -55,7 +55,7 @@ export const updateOrderStatus = async (req, res, next) => {
             throw error;
         }
 
-        // ถ้าเปลี่ยนเป็น Cancelled ให้คืนสต็อก (กรณีที่แอดมินยกเลิกเอง)
+        // ถ้าเปลี่ยนเป็น Cancelled ให้คืนสต็อก
         if (status === 'Cancelled' && order.status !== 'Cancelled') {
             const bulkRestockOps = order.items.map(item => ({
                 updateOne: {
@@ -65,6 +65,19 @@ export const updateOrderStatus = async (req, res, next) => {
             }));
             if (bulkRestockOps.length > 0) {
                 await Product.bulkWrite(bulkRestockOps);
+            }
+
+            // ✅ ถ้าเดิมเป็น Paid แล้วถูกยกเลิก ต้องลดยอดขาย (soldCount) ลงด้วย
+            if (order.status === 'Paid') {
+                const bulkReduceSoldOps = order.items.map(item => ({
+                    updateOne: {
+                        filter: { _id: item.productId },
+                        update: { $inc: { soldCount: -item.quantity } }
+                    }
+                }));
+                if (bulkReduceSoldOps.length > 0) {
+                    await Product.bulkWrite(bulkReduceSoldOps);
+                }
             }
         }
 
@@ -105,8 +118,7 @@ export const deleteOrder = async (req, res, next) => {
             throw error;
         }
 
-        // คืนสต็อกถ้าออเดอร์ยังไม่ถูกยกเลิก (และยังไม่จ่ายเงิน?)
-        // ปกติไม่แนะนำให้ลบออเดอร์ทิ้ง แต่ทำไว้ตาม CRUD มาตรฐาน
+        // คืนสต็อกถ้าออเดอร์ยังไม่ถูกยกเลิก
         if (order.status === 'Awaiting Payment') {
              const bulkRestockOps = order.items.map(item => ({
                 updateOne: {
@@ -116,6 +128,19 @@ export const deleteOrder = async (req, res, next) => {
             }));
             if (bulkRestockOps.length > 0) {
                 await Product.bulkWrite(bulkRestockOps);
+            }
+        }
+
+        // ✅ ถ้าลบออเดอร์ที่จ่ายเงินแล้ว ต้องลดยอดขาย (soldCount) ลงด้วย
+        if (order.status === 'Paid') {
+            const bulkReduceSoldOps = order.items.map(item => ({
+                updateOne: {
+                    filter: { _id: item.productId },
+                    update: { $inc: { soldCount: -item.quantity } }
+                }
+            }));
+            if (bulkReduceSoldOps.length > 0) {
+                await Product.bulkWrite(bulkReduceSoldOps);
             }
         }
 

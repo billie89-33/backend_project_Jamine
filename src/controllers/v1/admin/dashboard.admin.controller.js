@@ -441,10 +441,15 @@ export const getRecentOrders = async (req, res, next) => {
 export const getTopProducts = async (req, res, next) => {
     try {
         const limit = parseInt(req.query.limit, 10) || 5;
-        const products = await Product.find({})
-            .sort('-soldCount')
-            .limit(limit)
-            .lean();
+
+        // ✅ 1. กรองเฉพาะสินค้าที่มีการขายจริง (soldCount > 0)
+        // ✅ 2. เพิ่ม Tie-breaker: หากยอดขายเท่ากัน ให้เอาตัวที่อยู่มานานกว่าขึ้นก่อน (createdAt: 1)
+        const products = await Product.find({
+            soldCount: { $gt: 0 }
+        })
+        .sort({ soldCount: -1, createdAt: 1 })
+        .limit(limit)
+        .lean();
 
         const formattedProducts = products.map(p => ({
             _id: p._id,
