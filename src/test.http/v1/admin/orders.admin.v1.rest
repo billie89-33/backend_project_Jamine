@@ -1,0 +1,45 @@
+@baseUrl = http://localhost:4001/api/v1
+
+### 1. Login as Admin
+# @name adminLogin
+POST {{baseUrl}}/users/login
+Content-Type: application/json
+
+{
+    "email": "admin@example.com",
+    "password": "password123"
+}
+
+### 2. Get All Orders (To find a Paid order ID)
+# @name getAllOrders
+GET {{baseUrl}}/admin/orders
+Cookie: token={{adminLogin.response.headers.set-cookie}}
+
+### 3. Update Status to Shipped (FAIL: Missing Tracking Number)
+@orderId = {{getAllOrders.response.body.data[0]._id}}
+PATCH {{baseUrl}}/admin/orders/{{orderId}}/status
+Cookie: token={{adminLogin.response.headers.set-cookie}}
+Content-Type: application/json
+
+{
+    "status": "Shipped"
+}
+
+### 4. Update Status to Shipped (SUCCESS: With Tracking Number)
+PATCH {{baseUrl}}/admin/orders/{{orderId}}/status
+Cookie: token={{adminLogin.response.headers.set-cookie}}
+Content-Type: application/json
+
+{
+    "status": "Shipped",
+    "trackingNumber": "KRY123456789TH"
+}
+
+### 5. Update Status to Delivered
+PATCH {{baseUrl}}/admin/orders/{{orderId}}/status
+Cookie: token={{adminLogin.response.headers.set-cookie}}
+Content-Type: application/json
+
+{
+    "status": "Delivered"
+}

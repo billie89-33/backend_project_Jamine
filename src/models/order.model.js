@@ -69,7 +69,12 @@ const orderSchema = new mongoose.Schema({
     expiresAt: { 
         type: Date, 
         required: true 
-    } // เวลาหมดอายุเพื่อกวาดล้างและคืนสต็อก
+    }, // เวลาหมดอายุเพื่อกวาดล้างและคืนสต็อก
+    trackingNumber: {
+        type: String,
+        default: null,
+        trim: true
+    }
 }, {
     timestamps: true
 });

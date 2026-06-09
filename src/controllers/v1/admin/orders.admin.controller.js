@@ -39,8 +39,8 @@ export const getAllOrders = async (req, res, next) => {
 // @access  Private (Admin only)
 export const updateOrderStatus = async (req, res, next) => {
     try {
-        const { status } = req.body;
-        const allowedStatuses = ['Awaiting Payment', 'Paid', 'Cancelled', 'Processing', 'Shipped', 'Delivered'];
+        const { status, trackingNumber } = req.body;
+        const allowedStatuses = Object.values(ORDER_STATUS);
 
         if (!allowedStatuses.includes(status)) {
             const error = new Error('Invalid status');
@@ -56,7 +56,7 @@ export const updateOrderStatus = async (req, res, next) => {
         }
 
         // ถ้าเปลี่ยนเป็น Cancelled ให้คืนสต็อก
-        if (status === 'Cancelled' && order.status !== 'Cancelled') {
+        if (status === ORDER_STATUS.CANCELLED && order.status !== ORDER_STATUS.CANCELLED) {
             const bulkRestockOps = order.items.map(item => ({
                 updateOne: {
                     filter: { _id: item.productId },
@@ -68,7 +68,7 @@ export const updateOrderStatus = async (req, res, next) => {
             }
 
             // ✅ ถ้าเดิมเป็น Paid แล้วถูกยกเลิก ต้องลดยอดขาย (soldCount) ลงด้วย
-            if (order.status === 'Paid') {
+            if (order.status === ORDER_STATUS.PAID) {
                 const bulkReduceSoldOps = order.items.map(item => ({
                     updateOne: {
                         filter: { _id: item.productId },
@@ -82,7 +82,7 @@ export const updateOrderStatus = async (req, res, next) => {
         }
 
         // ถ้าเปลี่ยนจากสถานะอื่นมาเป็น Paid ให้บวกยอดขาย (Best Seller)
-        if (status === 'Paid' && order.status !== 'Paid') {
+        if (status === ORDER_STATUS.PAID && order.status !== ORDER_STATUS.PAID) {
             const bulkSoldOps = order.items.map(item => ({
                 updateOne: {
                     filter: { _id: item.productId },
@@ -92,6 +92,16 @@ export const updateOrderStatus = async (req, res, next) => {
             if (bulkSoldOps.length > 0) {
                 await Product.bulkWrite(bulkSoldOps);
             }
+        }
+
+        // ✅ Logic การบันทึกและตรวจสอบเลขพัสดุ (Strict Validation)
+        if (status === ORDER_STATUS.SHIPPED) {
+            if (!trackingNumber || trackingNumber.trim() === '') {
+                const error = new Error('กรุณาระบุเลขพัสดุก่อนทำการจัดส่งสินค้า (Tracking Number is required)');
+                error.status = 400;
+                throw error;
+            }
+            order.trackingNumber = trackingNumber.trim();
         }
 
         order.status = status;
