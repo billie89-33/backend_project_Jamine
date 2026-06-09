@@ -91,4 +91,5 @@ Thumbs.db
 # Documentation & Skills
 *.md
 !README.md
+!backend-shipping-tracking-spec.md
 docs-backend/

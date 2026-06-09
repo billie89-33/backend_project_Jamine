@@ -2,9 +2,11 @@ import Order from '../../../models/order.model.js';
 import Product from '../../../models/product.model.js';
 import { ORDER_STATUS } from '../../../constants/index.js';
 
-// @desc    Get all orders
-// @route   GET /api/v1/admin/orders
-// @access  Private (Admin only)
+/**
+ * @desc    Get all orders
+ * @route   GET /api/v1/admin/orders
+ * @access  Private (Admin only)
+ */
 export const getAllOrders = async (req, res, next) => {
     try {
         const { status, page = 1, limit = 10 } = req.query;
@@ -35,9 +37,11 @@ export const getAllOrders = async (req, res, next) => {
     }
 };
 
-// @desc    Update order status
-// @route   PATCH /api/v1/admin/orders/:id/status
-// @access  Private (Admin only)
+/**
+ * @desc    Update order status
+ * @route   PATCH /api/v1/admin/orders/:id/status
+ * @access  Private (Admin only)
+ */
 export const updateOrderStatus = async (req, res, next) => {
     try {
         const { status, trackingNumber } = req.body;
@@ -118,8 +122,10 @@ export const updateOrderStatus = async (req, res, next) => {
     }
 };
 
-// @desc    Delete order (Admin only)
-// @route   DELETE /api/v1/admin/orders/:id
+/**
+ * @desc    Delete order (Admin only)
+ * @route   DELETE /api/v1/admin/orders/:id
+ */
 export const deleteOrder = async (req, res, next) => {
     try {
         const order = await Order.findById(req.params.id);
