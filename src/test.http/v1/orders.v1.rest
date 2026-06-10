@@ -29,7 +29,11 @@ Content-Type: application/json
     }
 }
 
-### 3. Get Order By ID (เช็ครายละเอียดออเดอร์)
+### 3. Get My Orders (ดึงรายการออเดอร์ทั้งหมดของฉัน)
+# @name getMyOrders
+GET {{baseUrl}}/orders/me
+
+### 4. Get Order By ID (เช็ครายละเอียดออเดอร์)
 # เอา ID จากขั้นตอนที่ 2 มาใส่ตรงนี้
 @orderId = {{createOrder.response.body.data._id}}
 GET {{baseUrl}}/orders/{{orderId}}

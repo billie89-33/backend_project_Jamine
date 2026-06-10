@@ -237,6 +237,35 @@ export const createOrder = async (req, res, next) => {
     }
 };
 
+// @desc    Get all orders for current user
+// @route   GET /api/v1/orders/me
+// @access  Private
+export const getMyOrders = async (req, res, next) => {
+    try {
+        // กวาดล้างออเดอร์หมดอายุก่อนดึงข้อมูล เพื่อให้สถานะเป็นปัจจุบัน
+        await checkAndExpireOrders();
+
+        // ค้นหาออเดอร์ทั้งหมดที่เป็นของ User คนนี้
+        const orders = await Order.find({ userId: req.user._id })
+            .sort('-createdAt') // เอาอันใหม่ขึ้นก่อน
+            .lean();
+
+        // เพิ่ม totalAmount และ discount ให้รองรับโครงสร้างหน้าบ้าน
+        const formattedOrders = orders.map(order => ({
+            ...order,
+            totalAmount: order.total,
+            discount: order.discount || 0
+        }));
+
+        res.status(200).json({
+            success: true,
+            data: formattedOrders
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 // @desc    Get order by ID
 // @route   GET /api/v1/orders/:orderId
 // @access  Private

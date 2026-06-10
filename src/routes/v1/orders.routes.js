@@ -1,6 +1,7 @@
 import express from 'express';
 import { 
     createOrder, 
+    getMyOrders,
     getOrderById, 
     mockPayment 
 } from '../../controllers/v1/orders.controller.js';
@@ -13,6 +14,7 @@ const router = express.Router();
 router.use(protect);
 
 router.post('/', orderLimiter, createOrder);
+router.get('/me', getMyOrders);
 router.get('/:orderId', getOrderById);
 router.post('/:orderId/mock-payment', orderLimiter, mockPayment);
 
