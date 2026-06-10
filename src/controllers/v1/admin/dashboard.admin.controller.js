@@ -1,7 +1,7 @@
 import Order from '../../../models/order.model.js';
 import Product from '../../../models/product.model.js';
 import User from '../../../models/user.model.js';
-import { ORDER_STATUS, PRODUCT_STATUS } from '../../../constants/index.js';
+import { ORDER_STATUS, PRODUCT_STATUS, PAID_STATUSES } from '../../../constants/index.js';
 
 /**
  * @desc    Get dashboard summary statistics
@@ -33,12 +33,12 @@ export const getDashboardSummary = async (req, res, next) => {
                 break;
             default: // month
                 startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-                prevStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                prevStartDate = new Date(now.getFullYear(), now.getMonth - 1, 1);
         }
 
-        // 1. Balance (Revenue from Paid orders)
+        // 1. Balance (Revenue from Paid statuses)
         const revenueData = await Order.aggregate([
-            { $match: { status: ORDER_STATUS.PAID } },
+            { $match: { status: { $in: PAID_STATUSES } } },
             {
                 $facet: {
                     current: [
@@ -55,6 +55,7 @@ export const getDashboardSummary = async (req, res, next) => {
                 }
             }
         ]);
+
 
         const currentRevenue = revenueData[0].current[0]?.total || 0;
         const prevRevenue = revenueData[0].previous[0]?.total || 0;
@@ -298,7 +299,7 @@ export const getRevenueChart = async (req, res, next) => {
         }
 
         const chartData = await Order.aggregate([
-            { $match: { status: ORDER_STATUS.PAID, createdAt: { $gte: startDate } } },
+            { $match: { status: { $in: PAID_STATUSES }, createdAt: { $gte: startDate } } },
             {
                 $group: {
                     _id: { $dateToString: { format: groupByFormat, date: '$createdAt' } },
@@ -357,7 +358,7 @@ export const getCategorySales = async (req, res, next) => {
         }
 
         const categorySales = await Order.aggregate([
-            { $match: { status: ORDER_STATUS.PAID, createdAt: { $gte: startDate } } },
+            { $match: { status: { $in: PAID_STATUSES }, createdAt: { $gte: startDate } } },
             { $unwind: '$items' },
             {
                 $lookup: {

@@ -74,6 +74,10 @@ const orderSchema = new mongoose.Schema({
         type: String,
         default: null,
         trim: true
+    },
+    shippedAt: {
+        type: Date,
+        default: null
     }
 }, {
     timestamps: true

@@ -60,6 +60,23 @@ export const updateOrderStatus = async (req, res, next) => {
             throw error;
         }
 
+        // 🛡️ Strict Status Flow Validation (Logistics Rules)
+        // 1. ห้ามเปลี่ยนสถานะจาก Cancelled กลับไปเป็นสถานะอื่นที่เกี่ยวกับการจัดส่ง
+        if (order.status === ORDER_STATUS.CANCELLED && status !== ORDER_STATUS.CANCELLED) {
+            const error = new Error('ไม่สามารถเปลี่ยนสถานะออเดอร์ที่ถูกยกเลิกไปแล้วได้');
+            error.status = 400;
+            throw error;
+        }
+
+        // 2. เฉพาะออเดอร์ที่ Paid หรือ Processing เท่านั้นที่สามารถเปลี่ยนเป็น Shipped ได้
+        if (status === ORDER_STATUS.SHIPPED) {
+            if (order.status !== ORDER_STATUS.PAID && order.status !== ORDER_STATUS.PROCESSING) {
+                const error = new Error('เฉพาะออเดอร์ที่ชำระเงินแล้วหรือกำลังเตรียมจัดส่งเท่านั้นที่สามารถเปลี่ยนสถานะเป็น Shipped ได้');
+                error.status = 400;
+                throw error;
+            }
+        }
+
         // ถ้าเปลี่ยนเป็น Cancelled ให้คืนสต็อก
         if (status === ORDER_STATUS.CANCELLED && order.status !== ORDER_STATUS.CANCELLED) {
             const bulkRestockOps = order.items.map(item => ({
@@ -107,6 +124,7 @@ export const updateOrderStatus = async (req, res, next) => {
                 throw error;
             }
             order.trackingNumber = trackingNumber.trim();
+            order.shippedAt = new Date(); // บันทึกเวลาที่ส่งจริง
         }
 
         order.status = status;
@@ -136,7 +154,7 @@ export const deleteOrder = async (req, res, next) => {
         }
 
         // คืนสต็อกถ้าออเดอร์ยังไม่ถูกยกเลิก
-        if (order.status === 'Awaiting Payment') {
+        if (order.status === ORDER_STATUS.PENDING) {
              const bulkRestockOps = order.items.map(item => ({
                 updateOne: {
                     filter: { _id: item.productId },
@@ -149,7 +167,7 @@ export const deleteOrder = async (req, res, next) => {
         }
 
         // ✅ ถ้าลบออเดอร์ที่จ่ายเงินแล้ว ต้องลดยอดขาย (soldCount) ลงด้วย
-        if (order.status === 'Paid') {
+        if (order.status === ORDER_STATUS.PAID) {
             const bulkReduceSoldOps = order.items.map(item => ({
                 updateOne: {
                     filter: { _id: item.productId },

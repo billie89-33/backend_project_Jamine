@@ -1,0 +1,42 @@
+@baseUrl = http://localhost:4001/api/v1
+
+### 1. Login Admin (ต้องเป็นแอดมินเพื่อเข้าถึงระบบ Shipping)
+# @name adminLogin
+POST {{baseUrl}}/users/login
+Content-Type: application/json
+
+{
+    "email": "admin@example.com",
+    "password": "password123"
+}
+
+### 2. Get Shipping Stats (สถิติรวมสำหรับหน้า Shipping)
+GET {{baseUrl}}/admin/shipping/stats
+
+### 3. Get Shipping Orders (รายการออเดอร์ทั้งหมดที่ต้องจัดการส่ง)
+# @name getShippingOrders
+GET {{baseUrl}}/admin/shipping/orders?limit=5
+
+### 4. Filter Shipping Orders by Status (เช่น ออเดอร์ที่จ่ายแล้วแต่ยังไม่ได้ส่ง)
+GET {{baseUrl}}/admin/shipping/orders?status=Paid
+
+### 5. Quick Update Tracking & Status (อัปเดตเลขพัสดุและเปลี่ยนเป็น Shipped)
+# เอา ID มาจากข้อ 3 (ตัวอย่างออเดอร์ที่สถานะเป็น Paid หรือ Processing)
+@orderId = {{getShippingOrders.response.body.data[0]._id}}
+PATCH {{baseUrl}}/admin/shipping/{{orderId}}/tracking
+Content-Type: application/json
+
+{
+    "trackingNumber": "KRY123456789TH",
+    "status": "Shipped"
+}
+
+### 6. Verify Update (ตรวจสอบว่าสถานะและเลขพัสดุอัปเดตแล้ว)
+GET {{baseUrl}}/orders/{{orderId}}
+
+### 7. Search Shipping Orders by Order Number
+@orderNumber = {{getShippingOrders.response.body.data[0].orderNumber}}
+GET {{baseUrl}}/admin/shipping/orders?search={{orderNumber}}
+
+### 8. Logout
+POST {{baseUrl}}/users/logout
