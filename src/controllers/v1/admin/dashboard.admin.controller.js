@@ -1,4 +1,4 @@
-import Order from '../../../models/order.model.js';
+﻿import Order from '../../../models/order.model.js';
 import Product from '../../../models/product.model.js';
 import User from '../../../models/user.model.js';
 import { ORDER_STATUS, PRODUCT_STATUS, PAID_STATUSES } from '../../../constants/index.js';
@@ -160,7 +160,7 @@ export const getLowStockProducts = async (req, res, next) => {
             name: p.modelName,
             brand: p.brand,
             stock: p.stock,
-            image: p.image?.url
+            image: p.image
         }));
 
         if (res) {
@@ -282,20 +282,20 @@ export const getRevenueChart = async (req, res, next) => {
         switch (period) {
             case 'today':
                 startDate.setHours(0, 0, 0, 0);
-                groupByFormat = '%H:00'; // จัดกลุ่มตามชั่วโมง
+                groupByFormat = '%H:00'; // à¸ˆà¸±à¸”à¸à¸¥à¸¸à¹ˆà¸¡à¸•à¸²à¸¡à¸Šà¸±à¹ˆà¸§à¹‚à¸¡à¸‡
                 break;
             case 'week':
                 startDate.setDate(now.getDate() - 7);
                 startDate.setHours(0, 0, 0, 0);
-                groupByFormat = '%Y-%m-%d'; // จัดกลุ่มตามวัน
+                groupByFormat = '%Y-%m-%d'; // à¸ˆà¸±à¸”à¸à¸¥à¸¸à¹ˆà¸¡à¸•à¸²à¸¡à¸§à¸±à¸™
                 break;
             case 'year':
-                startDate = new Date(now.getFullYear(), 0, 1); // 1 มกราคม ของปีนี้
-                groupByFormat = '%Y-%m'; // จัดกลุ่มตามเดือน
+                startDate = new Date(now.getFullYear(), 0, 1); // 1 à¸¡à¸à¸£à¸²à¸„à¸¡ à¸‚à¸­à¸‡à¸›à¸µà¸™à¸µà¹‰
+                groupByFormat = '%Y-%m'; // à¸ˆà¸±à¸”à¸à¸¥à¸¸à¹ˆà¸¡à¸•à¸²à¸¡à¹€à¸”à¸·à¸­à¸™
                 break;
             default: // month
-                startDate = new Date(now.getFullYear(), now.getMonth(), 1); // วันที่ 1 ของเดือนนี้
-                groupByFormat = '%Y-%m-%d'; // จัดกลุ่มตามวัน
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1); // à¸§à¸±à¸™à¸—à¸µà¹ˆ 1 à¸‚à¸­à¸‡à¹€à¸”à¸·à¸­à¸™à¸™à¸µà¹‰
+                groupByFormat = '%Y-%m-%d'; // à¸ˆà¸±à¸”à¸à¸¥à¸¸à¹ˆà¸¡à¸•à¸²à¸¡à¸§à¸±à¸™
         }
 
         const chartData = await Order.aggregate([
@@ -311,9 +311,9 @@ export const getRevenueChart = async (req, res, next) => {
             { $project: { _id: 0, date: '$_id', revenue: 1 } }
         ]);
 
-        // ⚠️ สำคัญสำหรับการวาดกราฟเส้น:
-        // ถ้า Backend คิวรี่มาแล้วได้ข้อมูลแค่ "จุดเดียว" 
-        // กรุณาแนบจุดเริ่มต้นจำลอง (Dummy Start Point) ส่งกลับมาให้หน้าบ้านด้วย
+        // âš ï¸ à¸ªà¸³à¸„à¸±à¸à¸ªà¸³à¸«à¸£à¸±à¸šà¸à¸²à¸£à¸§à¸²à¸”à¸à¸£à¸²à¸Ÿà¹€à¸ªà¹‰à¸™:
+        // à¸–à¹‰à¸² Backend à¸„à¸´à¸§à¸£à¸µà¹ˆà¸¡à¸²à¹à¸¥à¹‰à¸§à¹„à¸”à¹‰à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¹à¸„à¹ˆ "à¸ˆà¸¸à¸”à¹€à¸”à¸µà¸¢à¸§" 
+        // à¸à¸£à¸¸à¸“à¸²à¹à¸™à¸šà¸ˆà¸¸à¸”à¹€à¸£à¸´à¹ˆà¸¡à¸•à¹‰à¸™à¸ˆà¸³à¸¥à¸­à¸‡ (Dummy Start Point) à¸ªà¹ˆà¸‡à¸à¸¥à¸±à¸šà¸¡à¸²à¹ƒà¸«à¹‰à¸«à¸™à¹‰à¸²à¸šà¹‰à¸²à¸™à¸”à¹‰à¸§à¸¢
         if (chartData.length === 1) {
             chartData.unshift({ 
                 date: period === 'year' ? 'Jan' : 'Start', 
@@ -443,8 +443,8 @@ export const getTopProducts = async (req, res, next) => {
     try {
         const limit = parseInt(req.query.limit, 10) || 5;
 
-        // ✅ 1. กรองเฉพาะสินค้าที่มีการขายจริง (soldCount > 0)
-        // ✅ 2. เพิ่ม Tie-breaker: หากยอดขายเท่ากัน ให้เอาตัวที่อยู่มานานกว่าขึ้นก่อน (createdAt: 1)
+        // âœ… 1. à¸à¸£à¸­à¸‡à¹€à¸‰à¸žà¸²à¸°à¸ªà¸´à¸™à¸„à¹‰à¸²à¸—à¸µà¹ˆà¸¡à¸µà¸à¸²à¸£à¸‚à¸²à¸¢à¸ˆà¸£à¸´à¸‡ (soldCount > 0)
+        // âœ… 2. à¹€à¸žà¸´à¹ˆà¸¡ Tie-breaker: à¸«à¸²à¸à¸¢à¸­à¸”à¸‚à¸²à¸¢à¹€à¸—à¹ˆà¸²à¸à¸±à¸™ à¹ƒà¸«à¹‰à¹€à¸­à¸²à¸•à¸±à¸§à¸—à¸µà¹ˆà¸­à¸¢à¸¹à¹ˆà¸¡à¸²à¸™à¸²à¸™à¸à¸§à¹ˆà¸²à¸‚à¸¶à¹‰à¸™à¸à¹ˆà¸­à¸™ (createdAt: 1)
         const products = await Product.find({
             soldCount: { $gt: 0 }
         })
@@ -458,7 +458,7 @@ export const getTopProducts = async (req, res, next) => {
             brand: p.brand,
             price: p.price,
             sold: p.soldCount,
-            image: p.image?.url
+            image: p.image
         }));
 
         if (res) {
@@ -478,10 +478,10 @@ export const getTopProducts = async (req, res, next) => {
  */
 export const getDashboardAll = async (req, res, next) => {
     try {
-        // 🔥 ดึง period ออกมาตรงนี้เลย
+        // ðŸ”¥ à¸”à¸¶à¸‡ period à¸­à¸­à¸à¸¡à¸²à¸•à¸£à¸‡à¸™à¸µà¹‰à¹€à¸¥à¸¢
         const { period = 'week' } = req.query; 
 
-        // 🔥 สร้าง Mock Request Object ที่มีแค่ query.period เพื่อส่งให้ฟังก์ชันลูก
+        // ðŸ”¥ à¸ªà¸£à¹‰à¸²à¸‡ Mock Request Object à¸—à¸µà¹ˆà¸¡à¸µà¹à¸„à¹ˆ query.period à¹€à¸žà¸·à¹ˆà¸­à¸ªà¹ˆà¸‡à¹ƒà¸«à¹‰à¸Ÿà¸±à¸‡à¸à¹Œà¸Šà¸±à¸™à¸¥à¸¹à¸
         const mockReq = { query: { period } }; 
 
         const [
@@ -494,10 +494,10 @@ export const getDashboardAll = async (req, res, next) => {
             orderStatus,
             userGrowth
         ] = await Promise.all([
-            getDashboardSummary(mockReq, null, null), // ส่ง mockReq แทน req
+            getDashboardSummary(mockReq, null, null), // à¸ªà¹ˆà¸‡ mockReq à¹à¸—à¸™ req
             getRevenueChart(mockReq, null, null),
             getCategorySales(mockReq, null, null),
-            getRecentOrders(mockReq, null, null), // ไม่เกี่ยวเรื่องเวลา แต่ส่งไปก็ไม่เป็นไรเพราะ query.limit ไม่พัง (ใช้ค่า default)
+            getRecentOrders(mockReq, null, null), // à¹„à¸¡à¹ˆà¹€à¸à¸µà¹ˆà¸¢à¸§à¹€à¸£à¸·à¹ˆà¸­à¸‡à¹€à¸§à¸¥à¸² à¹à¸•à¹ˆà¸ªà¹ˆà¸‡à¹„à¸›à¸à¹‡à¹„à¸¡à¹ˆà¹€à¸›à¹‡à¸™à¹„à¸£à¹€à¸žà¸£à¸²à¸° query.limit à¹„à¸¡à¹ˆà¸žà¸±à¸‡ (à¹ƒà¸Šà¹‰à¸„à¹ˆà¸² default)
             getTopProducts(mockReq, null, null),
             getLowStockProducts(mockReq, null, null),
             getOrderStatusDistribution(mockReq, null, null),
