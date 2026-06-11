@@ -11,7 +11,7 @@ const normalizeProductData = (data) => {
     fieldsToNormalize.forEach(field => {
         if (data[field]) {
             let val = data[field].trim();
-            
+
             // Check if it's an abbreviation
             const upperVal = val.toUpperCase();
             if (abbreviations.includes(upperVal)) {
@@ -33,6 +33,20 @@ const normalizeProductData = (data) => {
         }
     });
     return data;
+};
+
+/**
+ * 🛡️ Helper for sanitizing specification keys
+ * MongoDB forbids dots (.) in field names (and Map keys).
+ * We replace dots with a full-width dot (．) which is visually similar but safe.
+ */
+const sanitizeSpecKeys = (specs) => {
+    if (!specs || typeof specs !== 'object') return specs;
+    return Object.entries(specs).reduce((acc, [key, value]) => {
+        const safeKey = key.replace(/\./g, '\uFF0E');
+        acc[safeKey] = value;
+        return acc;
+    }, {});
 };
 
 // @desc    Get all products (Admin version - sees all statuses)
@@ -102,10 +116,12 @@ export const createProduct = async (req, res, next) => {
             throw error;
         }
 
-        // 2. Specifications handling (Safe Parse)
+        // 2. Specifications handling (Safe Parse & Sanitize)
         if (typeof productData.specifications === 'string') {
             productData.specifications = JSON.parse(productData.specifications);
         }
+        // 🛡️ Sanitize keys for MongoDB compatibility
+        productData.specifications = sanitizeSpecKeys(productData.specifications);
 
         // 3. Tags handling (Safe Parse)
         if (productData.tags && typeof productData.tags === 'string') {
@@ -113,7 +129,7 @@ export const createProduct = async (req, res, next) => {
                 const parsedTags = JSON.parse(productData.tags);
                 productData.tags = Array.isArray(parsedTags) ? parsedTags : [parsedTags];
             } catch (e) {
-                productData.tags = productData.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+                productData.tags = productData.tags.split(',').map(tag => tag.trim()).filter(Boolean);      
             }
         }
 
@@ -121,7 +137,7 @@ export const createProduct = async (req, res, next) => {
         if (productData.price !== undefined) productData.price = Number(productData.price);
         if (productData.stock !== undefined) productData.stock = Number(productData.stock);
         if (productData.isFeatured !== undefined) {
-            productData.isFeatured = productData.isFeatured === 'true' || productData.isFeatured === true;
+            productData.isFeatured = productData.isFeatured === 'true' || productData.isFeatured === true;  
         }
 
         const product = await Product.create(productData);
@@ -139,7 +155,7 @@ export const updateProduct = async (req, res, next) => {
     try {
         const productId = req.params.id;
         const existingProduct = await Product.findById(productId);
-        
+
         if (!existingProduct) {
             const error = new Error('Product not found');
             error.status = 404;
@@ -168,7 +184,10 @@ export const updateProduct = async (req, res, next) => {
             let specs = req.body.specifications;
             if (typeof specs === 'string') specs = JSON.parse(specs);
 
-            for (const [key, value] of Object.entries(specs)) {
+            for (let [key, value] of Object.entries(specs)) {
+                // 🛡️ Sanitize key: MongoDB doesn't allow dots in keys
+                key = key.replace(/\./g, '\uFF0E');
+
                 if (value === null || value === '') {
                     unsetObj[`specifications.${key}`] = 1;
                 } else {
@@ -211,8 +230,8 @@ export const updateProduct = async (req, res, next) => {
         const product = await Product.findByIdAndUpdate(
             productId,
             updateQuery,
-            { 
-                new: true, 
+            {
+                new: true,
                 runValidators: true,
                 context: 'query' // 🔥 สำคัญ: บอก Mongoose ว่านี่คือ Query Validation ไม่ใช่การสร้างใหม่
             }
