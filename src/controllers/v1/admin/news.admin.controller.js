@@ -8,7 +8,7 @@ import cloudinary from '../../../config/cloudinary.js';
 export const getAdminNews = async (req, res, next) => {
     try {
         const { limit, categoryId, isPublished } = req.query;
-        let query = {};
+        let query = {}; if (req.query.keyword) { const regex = new RegExp(req.query.keyword, 'i'); query.title = regex; }
 
         if (categoryId && categoryId !== 'All') query.category = categoryId;
         if (isPublished) query.isPublished = isPublished === 'true';

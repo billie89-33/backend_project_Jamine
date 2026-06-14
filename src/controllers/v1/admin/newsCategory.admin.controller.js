@@ -23,7 +23,7 @@ export const createCategory = async (req, res, next) => {
         
         // Generate slug from name
         const slug = name.toLowerCase()
-            .replace(/[^\w\s-]/g, '')
+            .replace(/[^\\w\\s-\\u0E00-\\u0E7F]/g, '')
             .replace(/[\s_-]+/g, '-')
             .replace(/^-+|-+$/g, '');
 
@@ -56,7 +56,7 @@ export const updateCategory = async (req, res, next) => {
         if (name) {
             updateData.name = name;
             updateData.slug = name.toLowerCase()
-                .replace(/[^\w\s-]/g, '')
+                .replace(/[^\\w\\s-\\u0E00-\\u0E7F]/g, '')
                 .replace(/[\s_-]+/g, '-')
                 .replace(/^-+|-+$/g, '');
         }

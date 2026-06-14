@@ -9,7 +9,7 @@ import News from '../../models/news.model.js';
 export const getAllNews = async (req, res, next) => {
     try {
         const { limit, categoryId, isPublished } = req.query;
-        let query = {};
+        let query = {}; if (req.query.keyword) { const regex = new RegExp(req.query.keyword, 'i'); query.title = regex; }
 
         // Default to showing only published news for public API
         query.isPublished = isPublished !== undefined ? isPublished === 'true' : true;
