@@ -22,9 +22,10 @@ export const createCategory = async (req, res, next) => {
         const { name, description } = req.body;
 
         const slug = name.toLowerCase()
-            .replace(/[^\w\s-\u0E00-\u0E7F]/g, '') // ลบอักขระพิเศษ ยกเว้นภาษาอังกฤษ ตัวเลข และภาษาไทย
-            .replace(/[\s_-]+/g, '-')              // เปลี่ยนช่องว่างเป็นขีดกลาง
-            .replace(/^-+|-+$/g, '');              // ลบขีดกลางที่หัวและท้าย
+            .trim()
+            .replace(/[^\w\s-\u0E00-\u0E7F]/g, '')
+            .replace(/[\s_-]+/g, '-')
+            .replace(/^-+|-+$/g, '');
 
         const category = await NewsCategory.create({
             name,
@@ -35,7 +36,7 @@ export const createCategory = async (req, res, next) => {
         res.status(201).json({ success: true, data: category });
     } catch (error) {
         if (error.code === 11000) {
-            const err = new Error('หมวดหมู่นี้มีอยู่แล้ว');
+            const err = new Error('หมวดหมู่นี้หรือชื่อ URL นี้มีอยู่แล้ว');
             err.status = 400;
             return next(err);
         }
@@ -55,9 +56,10 @@ export const updateCategory = async (req, res, next) => {
         if (name) {
             updateData.name = name;
             updateData.slug = name.toLowerCase()
-                .replace(/[^\w\s-\u0E00-\u0E7F]/g, '') // ลบอักขระพิเศษ ยกเว้นภาษาอังกฤษ ตัวเลข และภาษาไทย
-                .replace(/[\s_-]+/g, '-')              // เปลี่ยนช่องว่างเป็นขีดกลาง
-                .replace(/^-+|-+$/g, '');              // ลบขีดกลางที่หัวและท้าย
+                .trim()
+                .replace(/[^\w\s-\u0E00-\u0E7F]/g, '')
+                .replace(/[\s_-]+/g, '-')
+                .replace(/^-+|-+$/g, '');
         }
 
         const category = await NewsCategory.findByIdAndUpdate(
@@ -74,6 +76,11 @@ export const updateCategory = async (req, res, next) => {
 
         res.status(200).json({ success: true, data: category });
     } catch (error) {
+        if (error.code === 11000) {
+            const err = new Error('ชื่อหมวดหมู่หรือ URL นี้ถูกใช้งานแล้ว');
+            err.status = 400;
+            return next(err);
+        }
         next(error);
     }
 };
