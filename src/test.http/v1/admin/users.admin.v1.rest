@@ -1,18 +1,5 @@
 @baseUrl = http://localhost:4001/api/v1
 
-### 0. Register Admin (For Testing)
-# @name registerAdmin
-POST {{baseUrl}}/users/register
-Content-Type: application/json
-
-{
-    "username": "admin_jamine",
-    "email": "admin@example.com",
-    "password": "password123",
-    "confirmPassword": "password123",
-    "role": "admin"
-}
-
 ### 1. Login as Admin
 # @name adminLogin
 POST {{baseUrl}}/users/login
@@ -23,13 +10,34 @@ Content-Type: application/json
     "password": "password123"
 }
 
-### 2. Get All Users (Admin Only)
-GET {{baseUrl}}/admin/users
+### 2. Get All Customers (Pagination & Search)
+# @name getCustomers
+GET {{baseUrl}}/admin/users?page=1&limit=5&keyword=admin&status=active
 
-### 3. Delete User (Admin Only)
-# แทนที่ด้วย ID จาก Response ของการดึง User หรือ Register
-@targetUserId = {{registerAdmin.response.body.data._id}}
-DELETE {{baseUrl}}/admin/users/{{targetUserId}}
+### 3. Get Customer Summary (Aggregate Stats)
+# @name getCustomerSummary
+@customerId = {{getCustomers.response.body.data.customers[0]._id}}
+GET {{baseUrl}}/admin/users/{{customerId}}/summary
 
-### 4. Logout
+### 4. Update Customer Status (Surgical Update)
+# @name updateStatus
+PATCH {{baseUrl}}/admin/users/{{customerId}}/status
+Content-Type: application/json
+
+{
+    "status": "banned"
+}
+
+### 5. Revert Customer Status
+PATCH {{baseUrl}}/admin/users/{{customerId}}/status
+Content-Type: application/json
+
+{
+    "status": "active"
+}
+
+### 6. Delete User
+# DELETE {{baseUrl}}/admin/users/{{customerId}}
+
+### 7. Logout
 POST {{baseUrl}}/users/logout

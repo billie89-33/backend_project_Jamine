@@ -9,10 +9,27 @@ const userSchema = new mongoose.Schema({
         unique: true,
         trim: true
     },
+    name: {
+        type: String,
+        trim: true
+    },
+    phone: {
+        type: String,
+        default: null
+    },
+    avatar: {
+        public_id: { type: String, default: null },
+        url: { type: String, default: null }
+    },
     role: {
         type: String,
         enum: Object.values(USER_ROLES),
         default: USER_ROLES.USER
+    },
+    status: {
+        type: String,
+        enum: ['active', 'banned'],
+        default: 'active'
     },
     email: {
         type: String,
