@@ -21,11 +21,12 @@ export const createCategory = async (req, res, next) => {
     try {
         const { name, description } = req.body;
 
-        const slug = name.toLowerCase()
-            .trim()
-            .replace(/[^\w\s-\u0E00-\u0E7F]/g, '')
-            .replace(/[\s_-]+/g, '-')
-            .replace(/^-+|-+$/g, '');
+        // 🛡️ Logic สร้าง Slug ที่รองรับภาษาไทยแบบชัวร์ที่สุด
+        const slugBase = name.trim().toLowerCase()
+            .replace(/\s+/g, '-')           // เปลี่ยนช่องว่างเป็นขีดกลาง
+            .replace(/[^\u0E00-\u0E7F\w-]+/g, ''); // เก็บแค่ ไทย, อังกฤษ, ตัวเลข, ขีดกลาง
+
+        const slug = slugBase || `category-${Date.now()}`; // ป้องกันกรณีค่าว่าง
 
         const category = await NewsCategory.create({
             name,
@@ -55,11 +56,12 @@ export const updateCategory = async (req, res, next) => {
 
         if (name) {
             updateData.name = name;
-            updateData.slug = name.toLowerCase()
-                .trim()
-                .replace(/[^\w\s-\u0E00-\u0E7F]/g, '')
-                .replace(/[\s_-]+/g, '-')
-                .replace(/^-+|-+$/g, '');
+            // 🛡️ Logic สร้าง Slug ที่รองรับภาษาไทยแบบชัวร์ที่สุด
+            const slugBase = name.trim().toLowerCase()
+                .replace(/\s+/g, '-')           // เปลี่ยนช่องว่างเป็นขีดกลาง
+                .replace(/[^\u0E00-\u0E7F\w-]+/g, ''); // เก็บแค่ ไทย, อังกฤษ, ตัวเลข, ขีดกลาง
+            
+            updateData.slug = slugBase || `category-${Date.now()}`;
         }
 
         const category = await NewsCategory.findByIdAndUpdate(
