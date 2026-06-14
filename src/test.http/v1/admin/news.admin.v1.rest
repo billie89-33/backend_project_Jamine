@@ -1,0 +1,64 @@
+@baseUrl = http://localhost:4001/api/v1
+
+### 1. Login as Admin
+# @name adminLogin
+POST {{baseUrl}}/users/login
+Content-Type: application/json
+
+{
+    "email": "admin@example.com",
+    "password": "password123"
+}
+
+### 2. Create News Category
+# @name createCategory
+POST {{baseUrl}}/admin/news-categories
+Content-Type: application/json
+
+{
+    "name": "Health & Wellness",
+    "description": "ข่าวสารเกี่ยวกับสุขภาพและการดูแลตนเอง"
+}
+
+### 3. Get All Categories (Admin)
+# @name getAdminCategories
+GET {{baseUrl}}/admin/news-categories
+
+### 4. Create News with Category
+# @name createNews
+@categoryId = {{createCategory.response.body.data._id}}
+POST {{baseUrl}}/admin/news
+Content-Type: application/json
+
+{
+    "title": "5 วิธีดูแลสุขภาพในหน้าฝน",
+    "content": "<p>เนื้อหาข่าวสุขภาพ...</p>",
+    "category": "{{categoryId}}",
+    "image": {
+        "url": "https://res.cloudinary.com/demo/image/upload/sample.jpg",
+        "publicId": "sample_id"
+    },
+    "isPublished": true
+}
+
+### 5. Get All News (Admin - Filter by Category)
+GET {{baseUrl}}/admin/news?categoryId={{categoryId}}
+
+### 6. Update Category
+PATCH {{baseUrl}}/admin/news-categories/{{categoryId}}
+Content-Type: application/json
+
+{
+    "name": "Health & Medical",
+    "description": "อัปเดตข้อมูลทางการแพทย์และสุขภาพ"
+}
+
+### 7. Delete News
+@newsId = {{createNews.response.body.data._id}}
+DELETE {{baseUrl}}/admin/news/{{newsId}}
+
+### 8. Delete Category
+DELETE {{baseUrl}}/admin/news-categories/{{categoryId}}
+
+### 9. Logout
+POST {{baseUrl}}/users/logout

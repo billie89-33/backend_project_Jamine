@@ -4,6 +4,8 @@ import usersAdminRoutes from './users.admin.routes.js';
 import productsAdminRoutes from './products.admin.routes.js';
 import ordersAdminRoutes from './orders.admin.routes.js';
 import bannersAdminRoutes from './banners.admin.routes.js';
+import newsAdminRoutes from './news.admin.routes.js';
+import newsCategoryAdminRoutes from './newsCategory.admin.routes.js';
 import dashboardAdminRoutes from './dashboard.admin.routes.js';
 import shippingAdminRoutes from './shipping.admin.routes.js';
 
@@ -17,6 +19,8 @@ router.use('/users', usersAdminRoutes);
 router.use('/products', productsAdminRoutes);
 router.use('/orders', ordersAdminRoutes);
 router.use('/banners', bannersAdminRoutes);
+router.use('/news', newsAdminRoutes);
+router.use('/news-categories', newsCategoryAdminRoutes);
 router.use('/dashboard', dashboardAdminRoutes);
 router.use('/shipping', shippingAdminRoutes);
 

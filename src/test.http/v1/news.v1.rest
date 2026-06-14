@@ -1,0 +1,15 @@
+@baseUrl = http://localhost:4001/api/v1
+
+### 1. Get All Categories (Public)
+# @name getCategories
+GET {{baseUrl}}/news-categories
+
+### 2. Get All News (Public - Filter by Category)
+# @name getAllNews
+@catId = {{getCategories.response.body.data[0]._id}}
+GET {{baseUrl}}/news?limit=5&categoryId={{catId}}
+
+### 3. Get News Detail (Increment Views)
+# @name getNewsDetail
+@newsId = {{getAllNews.response.body.data[0]._id}}
+GET {{baseUrl}}/news/{{newsId}}
