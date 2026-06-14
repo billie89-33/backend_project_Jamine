@@ -10,9 +10,9 @@ export const getAdminNews = async (req, res, next) => {
         const { limit, categoryId, isPublished, keyword } = req.query;
         let query = {};
 
+        // เพิ่มส่วนนี้เพื่อรองรับการค้นหา
         if (keyword) {
-            const regex = new RegExp(keyword, 'i');
-            query.title = regex;
+            query.title = { $regex: keyword, $options: 'i' };
         }
 
         if (categoryId && categoryId !== 'All') query.category = categoryId;

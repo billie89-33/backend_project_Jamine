@@ -21,11 +21,10 @@ export const createCategory = async (req, res, next) => {
     try {
         const { name, description } = req.body;
 
-        // Generate slug from name (Support Thai characters)
         const slug = name.toLowerCase()
-            .replace(/[^\w\s-\u0E00-\u0E7F]/g, '')
-            .replace(/[\s_-]+/g, '-')
-            .replace(/^-+|-+$/g, '');
+            .replace(/[^\w\s-\u0E00-\u0E7F]/g, '') // ลบอักขระพิเศษ ยกเว้นภาษาอังกฤษ ตัวเลข และภาษาไทย
+            .replace(/[\s_-]+/g, '-')              // เปลี่ยนช่องว่างเป็นขีดกลาง
+            .replace(/^-+|-+$/g, '');              // ลบขีดกลางที่หัวและท้าย
 
         const category = await NewsCategory.create({
             name,
@@ -56,9 +55,9 @@ export const updateCategory = async (req, res, next) => {
         if (name) {
             updateData.name = name;
             updateData.slug = name.toLowerCase()
-                .replace(/[^\w\s-\u0E00-\u0E7F]/g, '')
-                .replace(/[\s_-]+/g, '-')
-                .replace(/^-+|-+$/g, '');
+                .replace(/[^\w\s-\u0E00-\u0E7F]/g, '') // ลบอักขระพิเศษ ยกเว้นภาษาอังกฤษ ตัวเลข และภาษาไทย
+                .replace(/[\s_-]+/g, '-')              // เปลี่ยนช่องว่างเป็นขีดกลาง
+                .replace(/^-+|-+$/g, '');              // ลบขีดกลางที่หัวและท้าย
         }
 
         const category = await NewsCategory.findByIdAndUpdate(

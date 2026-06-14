@@ -12,8 +12,7 @@ export const getAllNews = async (req, res, next) => {
         let query = {};
 
         if (keyword) {
-            const regex = new RegExp(keyword, 'i');
-            query.title = regex;
+            query.title = { $regex: keyword, $options: 'i' };
         }
 
         // Default to showing only published news for public API
