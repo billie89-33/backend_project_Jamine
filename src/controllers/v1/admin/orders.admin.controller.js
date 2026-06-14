@@ -9,10 +9,11 @@ import { ORDER_STATUS } from '../../../constants/index.js';
  */
 export const getAllOrders = async (req, res, next) => {
     try {
-        const { status, page = 1, limit = 10 } = req.query;
+        const { status, userId, page = 1, limit = 10 } = req.query;
         const queryObj = {};
 
         if (status) queryObj.status = status;
+        if (userId) queryObj.userId = userId;
 
         const skip = (page - 1) * limit;
 

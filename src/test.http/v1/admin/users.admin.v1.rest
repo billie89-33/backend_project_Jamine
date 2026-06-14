@@ -14,12 +14,31 @@ Content-Type: application/json
 # @name getCustomers
 GET {{baseUrl}}/admin/users?page=1&limit=5&keyword=admin&status=active
 
-### 3. Get Customer Summary (Aggregate Stats)
+### 3. Export Customers Data
+# @name exportCustomers
+GET {{baseUrl}}/admin/users/export
+
+### 4. Get Customer Summary (Aggregate Stats + Addresses)
 # @name getCustomerSummary
 @customerId = {{getCustomers.response.body.data.customers[0]._id}}
 GET {{baseUrl}}/admin/users/{{customerId}}/summary
 
-### 4. Update Customer Status (Surgical Update)
+### 5. Full Edit User by Admin (Whitelisted)
+# @name fullEditUser
+PATCH {{baseUrl}}/admin/users/{{customerId}}
+Content-Type: application/json
+
+{
+    "name": "Admin Updated",
+    "phone": "0812345678",
+    "status": "active"
+}
+
+### 6. Test Deep Linking (Orders by User ID)
+# @name getOrdersByUser
+GET {{baseUrl}}/admin/orders?userId={{customerId}}
+
+### 7. Update Customer Status (Legacy Endpoint)
 # @name updateStatus
 PATCH {{baseUrl}}/admin/users/{{customerId}}/status
 Content-Type: application/json
@@ -28,7 +47,7 @@ Content-Type: application/json
     "status": "banned"
 }
 
-### 5. Revert Customer Status
+### 8. Revert Customer Status
 PATCH {{baseUrl}}/admin/users/{{customerId}}/status
 Content-Type: application/json
 
@@ -36,8 +55,8 @@ Content-Type: application/json
     "status": "active"
 }
 
-### 6. Delete User
+### 9. Delete User
 # DELETE {{baseUrl}}/admin/users/{{customerId}}
 
-### 7. Logout
+### 10. Logout
 POST {{baseUrl}}/users/logout

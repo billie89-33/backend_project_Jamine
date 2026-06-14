@@ -2,10 +2,12 @@ import User from '../../../models/user.model.js';
 import Order from '../../../models/order.model.js';
 import { USER_ROLES, ORDER_STATUS } from '../../../constants/index.js';
 
-// @desc    Get all customers (Admin only)
-// @route   GET /api/v1/admin/users
-// @access  Private (Admin)
-// @query   ?page=1&limit=10&keyword=somchai&status=active
+/**
+ * @desc    Get all customers (Admin only)
+ * @route   GET /api/v1/admin/users
+ * @access  Private (Admin)
+ * @query   ?page=1&limit=10&keyword=somchai&status=active
+ */
 export const getUsers = async (req, res, next) => {
     try {
         const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -58,14 +60,34 @@ export const getUsers = async (req, res, next) => {
 };
 
 /**
- * @desc    Get customer summary (Profile + Aggregated Order Total)
+ * @desc    Export customers data (JSON for Frontend to convert)
+ * @route   GET /api/v1/admin/users/export
+ */
+export const exportCustomers = async (req, res, next) => {
+    try {
+        const customers = await User.find({ role: USER_ROLES.USER })
+            .select('name username email phone status createdAt')
+            .sort({ createdAt: -1 })
+            .lean();
+
+        res.status(200).json({
+            success: true,
+            data: customers
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * @desc    Get customer summary (Profile + Addresses + Aggregated Stats)
  * @route   GET /api/v1/admin/users/:id/summary
  */
 export const getCustomerSummary = async (req, res, next) => {
     try {
         const userId = req.params.id;
 
-        // 1. Fetch Profile
+        // 1. Fetch Profile (including addresses by not excluding them)
         const profile = await User.findById(userId).select('-password -role').lean();
         if (!profile) {
             const error = new Error('Customer not found');
@@ -74,7 +96,6 @@ export const getCustomerSummary = async (req, res, next) => {
         }
 
         // 2. Calculate Order Stats (Aggregate)
-        // Only count orders that are NOT cancelled
         const orderStats = await Order.aggregate([
             {
                 $match: {
@@ -86,7 +107,7 @@ export const getCustomerSummary = async (req, res, next) => {
                 $group: {
                     _id: null,
                     totalOrders: { $sum: 1 },
-                    totalSpent: { $sum: '$total' } // Field name in order.model.js is 'total'
+                    totalSpent: { $sum: '$total' }
                 }
             }
         ]);
@@ -109,7 +130,56 @@ export const getCustomerSummary = async (req, res, next) => {
 };
 
 /**
- * @desc    Update customer status (Active / Banned) - Surgical Update
+ * @desc    Update customer information by Admin (Whitelisted Full Edit)
+ * @route   PATCH /api/v1/admin/users/:id
+ */
+export const updateUserByAdmin = async (req, res, next) => {
+    try {
+        // 🛡️ Whitelisting: Allow only specific fields to be updated
+        const allowedUpdates = ['name', 'email', 'phone', 'status'];
+        const updates = {};
+
+        Object.keys(req.body).forEach(key => {
+            if (allowedUpdates.includes(key)) {
+                updates[key] = req.body[key];
+            }
+        });
+
+        if (Object.keys(updates).length === 0) {
+            const error = new Error('No valid update fields provided');
+            error.status = 400;
+            return next(error);
+        }
+
+        const customer = await User.findByIdAndUpdate(
+            req.params.id,
+            { $set: updates },
+            { new: true, runValidators: true, context: 'query' }
+        ).select('name username email phone status');
+
+        if (!customer) {
+            const error = new Error('Customer not found');
+            error.status = 404;
+            return next(error);
+        }
+
+        res.status(200).json({
+            success: true,
+            data: customer
+        });
+    } catch (error) {
+        // Handle duplicate email error
+        if (error.code === 11000 && error.keyPattern.email) {
+            const err = new Error('Email already exists');
+            err.status = 400;
+            return next(err);
+        }
+        next(error);
+    }
+};
+
+/**
+ * @desc    Update customer status (Active / Banned) - Legacy Surgical Update
  * @route   PATCH /api/v1/admin/users/:id/status
  */
 export const updateCustomerStatus = async (req, res, next) => {
@@ -122,7 +192,6 @@ export const updateCustomerStatus = async (req, res, next) => {
             return next(error);
         }
 
-        // Surgical Update using $set
         const customer = await User.findByIdAndUpdate(
             req.params.id,
             { $set: { status: status } },
@@ -144,9 +213,10 @@ export const updateCustomerStatus = async (req, res, next) => {
     }
 };
 
-// @desc    Delete user (Admin only)
-// @route   DELETE /api/v1/admin/users/:id
-// @access  Private (Admin)
+/**
+ * @desc    Delete user (Admin only)
+ * @route   DELETE /api/v1/admin/users/:id
+ */
 export const deleteUser = async (req, res, next) => {
     try {
         const user = await User.findByIdAndDelete(req.params.id);
