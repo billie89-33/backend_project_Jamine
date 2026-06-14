@@ -145,3 +145,26 @@ export const deleteNews = async (req, res, next) => {
         next(error);
     }
 };
+
+/**
+ * @desc    Upload image for Rich Text Editor (React Quill)
+ * @route   POST /api/v1/admin/news/upload-image
+ * @access  Private (Admin)
+ */
+export const uploadNewsImage = async (req, res, next) => {
+    try {
+        if (!req.file) {
+            const error = new Error('กรุณาอัปโหลดรูปภาพ');
+            error.status = 400;
+            return next(error);
+        }
+
+        res.status(200).json({
+            success: true,
+            url: req.file.path,
+            publicId: req.file.filename // Providing publicId just in case frontend needs it for future cleanup
+        });
+    } catch (error) {
+        next(error);
+    }
+};

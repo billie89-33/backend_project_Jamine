@@ -10,7 +10,11 @@ Content-Type: application/json
     "password": "password123"
 }
 
-### 2. Create News Category
+### 2. Get All Categories (Admin)
+# @name getAdminCategories
+GET {{baseUrl}}/admin/news-categories
+
+### 3. Create News Category
 # @name createCategory
 POST {{baseUrl}}/admin/news-categories
 Content-Type: application/json
@@ -20,11 +24,12 @@ Content-Type: application/json
     "description": "ข่าวสารเกี่ยวกับสุขภาพและการดูแลตนเอง"
 }
 
-### 3. Get All Categories (Admin)
-# @name getAdminCategories
-GET {{baseUrl}}/admin/news-categories
+### 4. Upload Image for Rich Text Editor
+# Note: In real usage, this is a multipart/form-data request
+# @name uploadRTELink
+POST {{baseUrl}}/admin/news/upload-image
 
-### 4. Create News with Category
+### 5. Create News with Category
 # @name createNews
 @categoryId = {{createCategory.response.body.data._id}}
 POST {{baseUrl}}/admin/news
@@ -41,10 +46,10 @@ Content-Type: application/json
     "isPublished": true
 }
 
-### 5. Get All News (Admin - Filter by Category)
+### 6. Get All News (Admin - Filter by Category)
 GET {{baseUrl}}/admin/news?categoryId={{categoryId}}
 
-### 6. Update Category
+### 7. Update Category
 PATCH {{baseUrl}}/admin/news-categories/{{categoryId}}
 Content-Type: application/json
 
@@ -53,12 +58,12 @@ Content-Type: application/json
     "description": "อัปเดตข้อมูลทางการแพทย์และสุขภาพ"
 }
 
-### 7. Delete News
+### 8. Delete News
 @newsId = {{createNews.response.body.data._id}}
 DELETE {{baseUrl}}/admin/news/{{newsId}}
 
-### 8. Delete Category
+### 9. Delete Category
 DELETE {{baseUrl}}/admin/news-categories/{{categoryId}}
 
-### 9. Logout
+### 10. Logout
 POST {{baseUrl}}/users/logout
