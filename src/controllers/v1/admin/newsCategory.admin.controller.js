@@ -20,10 +20,10 @@ export const getAdminCategories = async (req, res, next) => {
 export const createCategory = async (req, res, next) => {
     try {
         const { name, description } = req.body;
-        
-        // Generate slug from name
+
+        // Generate slug from name (Support Thai characters)
         const slug = name.toLowerCase()
-            .replace(/[^\\w\\s-\\u0E00-\\u0E7F]/g, '')
+            .replace(/[^\w\s-\u0E00-\u0E7F]/g, '')
             .replace(/[\s_-]+/g, '-')
             .replace(/^-+|-+$/g, '');
 
@@ -56,7 +56,7 @@ export const updateCategory = async (req, res, next) => {
         if (name) {
             updateData.name = name;
             updateData.slug = name.toLowerCase()
-                .replace(/[^\\w\\s-\\u0E00-\\u0E7F]/g, '')
+                .replace(/[^\w\s-\u0E00-\u0E7F]/g, '')
                 .replace(/[\s_-]+/g, '-')
                 .replace(/^-+|-+$/g, '');
         }
