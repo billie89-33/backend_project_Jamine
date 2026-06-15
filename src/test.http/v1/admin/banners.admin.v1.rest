@@ -1,15 +1,23 @@
 ### Banner API Test (Admin)
 
 @baseUrl = http://localhost:4001/api/v1
-@adminToken = (ใส่ Admin Token ของคุณที่นี่)
+
+### 0. Login as Admin
+# @name adminLogin
+POST {{baseUrl}}/users/login
+Content-Type: application/json
+
+{
+    "email": "admin@example.com",
+    "password": "password123"
+}
 
 ### 1. [Admin] Get all banners (including inactive)
 GET {{baseUrl}}/admin/banners
-Authorization: Bearer {{adminToken}}
 
 ### 2. [Admin] Create new banner (Home Hero)
+# @name createBanner
 POST {{baseUrl}}/admin/banners
-Authorization: Bearer {{adminToken}}
 Content-Type: multipart/form-data; boundary=boundary
 
 --boundary
@@ -36,13 +44,13 @@ true
 Content-Disposition: form-data; name="image"; filename="hero.png"
 Content-Type: image/png
 
-< ../../test.http/test-images/product-sample-1.png
+< ../../test-images/product-sample-1.png
 --boundary--
 
 ### 3. [Admin] Update banner (Partial - Change title only)
 # แก้ไขเฉพาะชื่อ โดยไม่ส่งรูปภาพ (รูปเดิมต้องยังอยู่)
-PATCH {{baseUrl}}/admin/banners/{{banner_id_here}}
-Authorization: Bearer {{adminToken}}
+@bannerId = {{createBanner.response.body.data._id}}
+PATCH {{baseUrl}}/admin/banners/{{bannerId}}
 Content-Type: application/json
 
 {
@@ -50,5 +58,7 @@ Content-Type: application/json
 }
 
 ### 4. [Admin] Delete banner
-DELETE {{baseUrl}}/admin/banners/{{banner_id_here}}
-Authorization: Bearer {{adminToken}}
+DELETE {{baseUrl}}/admin/banners/{{bannerId}}
+
+### 5. Logout
+POST {{baseUrl}}/users/logout

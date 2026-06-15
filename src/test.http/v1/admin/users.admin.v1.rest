@@ -12,7 +12,7 @@ Content-Type: application/json
 
 ### 2. Get All Customers (Pagination & Search)
 # @name getCustomers
-GET {{baseUrl}}/admin/users?page=1&limit=5&keyword=admin&status=active
+GET {{baseUrl}}/admin/users?page=1&limit=5&keyword=jamine&status=active
 
 ### 3. Export Customers Data
 # @name exportCustomers

@@ -39,6 +39,32 @@ export const getAllOrders = async (req, res, next) => {
 };
 
 /**
+ * @desc    Get single order details
+ * @route   GET /api/v1/admin/orders/:id
+ * @access  Private (Admin only)
+ */
+export const getOrderById = async (req, res, next) => {
+    try {
+        const order = await Order.findById(req.params.id)
+            .populate('userId', 'name email phone') // ดึงข้อมูลผู้ซื้อ
+            .populate('items.productId', 'modelName image price'); // ดึงข้อมูลสินค้าในออเดอร์
+
+        if (!order) {
+            const error = new Error('Order not found');
+            error.status = 404;
+            throw error;
+        }
+
+        res.status(200).json({
+            success: true,
+            data: order
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
  * @desc    Update order status
  * @route   PATCH /api/v1/admin/orders/:id/status
  * @access  Private (Admin only)

@@ -24,10 +24,9 @@ Content-Type: application/json
     "description": "ข่าวสารเกี่ยวกับสุขภาพและการดูแลตนเอง"
 }
 
-### 4. Upload Image for Rich Text Editor
+### 4. Upload Image for Rich Text Editor (Manual Test Needed)
 # Note: In real usage, this is a multipart/form-data request
-# @name uploadRTELink
-POST {{baseUrl}}/admin/news/upload-image
+# POST {{baseUrl}}/admin/news/upload-image
 
 ### 5. Create News with Category
 # @name createNews

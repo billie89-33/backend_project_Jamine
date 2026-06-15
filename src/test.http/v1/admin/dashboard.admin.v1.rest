@@ -12,36 +12,27 @@ Content-Type: application/json
 
 ### 2. Get Dashboard All (Combined Data)
 GET {{baseUrl}}/admin/dashboard/all
-Cookie: token={{adminLogin.response.headers.set-cookie}}
 
 ### 3. Get Dashboard Summary
 GET {{baseUrl}}/admin/dashboard/summary?period=month
-Cookie: token={{adminLogin.response.headers.set-cookie}}
 
 ### 4. Get Revenue Chart
 GET {{baseUrl}}/admin/dashboard/revenue-chart?period=month
-Cookie: token={{adminLogin.response.headers.set-cookie}}
 
 ### 5. Get Category Sales
 GET {{baseUrl}}/admin/dashboard/category-sales?period=year
-Cookie: token={{adminLogin.response.headers.set-cookie}}
 
 ### 6. Get Recent Orders
 GET {{baseUrl}}/admin/dashboard/recent-orders?limit=3
-Cookie: token={{adminLogin.response.headers.set-cookie}}
 
 ### 7. Get Top Products
 GET {{baseUrl}}/admin/dashboard/top-products?limit=3
-Cookie: token={{adminLogin.response.headers.set-cookie}}
 
 ### 8. Get Low Stock Products
 GET {{baseUrl}}/admin/dashboard/low-stock?threshold=10
-Cookie: token={{adminLogin.response.headers.set-cookie}}
 
 ### 9. Get Order Status Distribution
 GET {{baseUrl}}/admin/dashboard/order-status
-Cookie: token={{adminLogin.response.headers.set-cookie}}
 
 ### 10. Get User Growth Chart
 GET {{baseUrl}}/admin/dashboard/user-growth?period=year
-Cookie: token={{adminLogin.response.headers.set-cookie}}
