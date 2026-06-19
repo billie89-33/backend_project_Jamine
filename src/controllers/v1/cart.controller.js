@@ -72,7 +72,7 @@ const validateAndCalculateCart = async (items, autoAdjust = false) => {
 // @route   GET /api/v1/cart
 export const getCart = async (req, res, next) => {
     try {
-        let cart = await Cart.findOne({ userId: req.user._id }).populate('items.productId');
+        let cart = await Cart.findOne({ userId: req.user._id }); // 🚀 1. ลบ populate ซ้ำซ้อนออก (validateAndCalculateCart ดึงข้อมูลให้แล้ว)
 
         if (!cart) {
             cart = await Cart.create({ userId: req.user._id, items: [] });
@@ -88,15 +88,19 @@ export const getCart = async (req, res, next) => {
 
         const validation = await validateAndCalculateCart(cart.items, true);
         
-        cart.items = validation.validatedItems.map(item => ({
-            productId: item.productId,
-            quantity: item.quantity
-        }));
-        cart.subtotal = validation.subtotal;
-        cart.shippingFee = validation.shippingFee;
-        cart.total = validation.total;
+        // 🚀 2. เช็คก่อนว่าค่าเปลี่ยนไหม ค่อย save() เพื่อลดภาระ Database มหาศาล
+        const isChanged = validation.isAdjusted || cart.subtotal !== validation.subtotal || cart.total !== validation.total;
 
-        await cart.save();
+        if (isChanged) {
+            cart.items = validation.validatedItems.map(item => ({
+                productId: item.productId,
+                quantity: item.quantity
+            }));
+            cart.subtotal = validation.subtotal;
+            cart.shippingFee = validation.shippingFee;
+            cart.total = validation.total;
+            await cart.save();
+        }
         await cart.populate({
             path: 'items.productId',
             select: 'modelName price image stock status'
