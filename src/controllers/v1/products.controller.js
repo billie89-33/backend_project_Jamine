@@ -6,40 +6,40 @@ import { PRODUCT_STATUS } from '../../constants/index.js';
 // @access  Public
 export const getProducts = async (req, res, next) => {
     try {
-        // 1. à¸à¸£à¸­à¸‡à¸ªà¸´à¸™à¸„à¹‰à¸²à¸—à¸µà¹ˆà¸žà¸£à¹‰à¸­à¸¡à¹à¸ªà¸”à¸‡à¸œà¸¥ (Active à¸«à¸£à¸·à¸­ Out of Stock)
+       
         const queryObj = {
             status: { $in: [PRODUCT_STATUS.ACTIVE, PRODUCT_STATUS.OUT_OF_STOCK] }
         };
 
-        // 2. à¸à¸£à¸­à¸‡à¸•à¸²à¸¡à¸«à¸¡à¸§à¸”à¸«à¸¡à¸¹à¹ˆà¸«à¸¥à¸±à¸ (Category) - à¸£à¸­à¸‡à¸£à¸±à¸š Case Insensitive
+        
         if (req.query.category && req.query.category !== 'All') {
             queryObj.category = { $regex: `^${req.query.category}$`, $options: 'i' };
         }
 
-        // ðŸŒŸ à¸à¸£à¸­à¸‡à¸•à¸²à¸¡à¹à¸šà¸£à¸™à¸”à¹Œ (à¸£à¸­à¸‡à¸£à¸±à¸šà¸«à¸¥à¸²à¸¢à¹à¸šà¸£à¸™à¸”à¹Œ)     
+             
         if (req.query.brand) {
-            // à¸«à¸™à¹‰à¸²à¸šà¹‰à¸²à¸™à¸ªà¹ˆà¸‡à¸¡à¸²à¹€à¸›à¹‡à¸™ "Logitech,Razer" à¹€à¸£à¸²à¸•à¹‰à¸­à¸‡à¸«à¸±à¹ˆà¸™à¹€à¸›à¹‡à¸™ Array
+            
             const brandsArray = req.query.brand.split(',').map(b => b.trim()).filter(Boolean);
 
             if (brandsArray.length > 0) {
-                // à¸ªà¸£à¹‰à¸²à¸‡à¹€à¸‡à¸·à¹ˆà¸­à¸™à¹„à¸‚ Regex à¹€à¸žà¸·à¹ˆà¸­à¹ƒà¸«à¹‰à¸„à¹‰à¸™à¸«à¸²à¹à¸šà¸š Case Insensitive (à¹„à¸¡à¹ˆà¸ªà¸™à¸žà¸´à¸¡à¸žà¹Œà¹€à¸¥à¹‡à¸/à¹ƒà¸«à¸à¹ˆ)
+                
                 queryObj.brand = {
                     $in: brandsArray.map(b => new RegExp(`^${b}$`, 'i'))
                 };
             }
         }
 
-        // 3. à¸à¸£à¸­à¸‡à¸ªà¸´à¸™à¸„à¹‰à¸²à¹à¸™à¸°à¸™à¸³ (isFeatured)
+        
         if (req.query.isFeatured) {
             queryObj.isFeatured = req.query.isFeatured === 'true';
         }
 
-        // 4. à¸à¸£à¸­à¸‡à¹€à¸‰à¸žà¸²à¸°à¸ªà¸´à¸™à¸„à¹‰à¸²à¸—à¸µà¹ˆà¸¡à¸µà¹ƒà¸™à¸ªà¸•à¹‡à¸­à¸ (In Stock)    
+          
         if (req.query.inStock === 'true') {
             queryObj.stock = { $gt: 0 };
         }
 
-        // 5. à¸£à¸°à¸šà¸šà¸„à¹‰à¸™à¸«à¸²à¸”à¹‰à¸§à¸¢à¸‚à¹‰à¸­à¸„à¸§à¸²à¸¡ (Search Keyword)
+        
         if (req.query.keyword) {
             const keyword = req.query.keyword;
             queryObj.$or = [
@@ -50,7 +50,7 @@ export const getProducts = async (req, res, next) => {
             ];
         }
 
-        // 6. à¸à¸£à¸­à¸‡à¸•à¸²à¸¡à¸Šà¹ˆà¸§à¸‡à¸£à¸²à¸„à¸² (Price Range: minPrice, maxPrice)
+        
         if (req.query.minPrice || req.query.maxPrice) {
             queryObj.price = {};
             const minP = Number(req.query.minPrice);
@@ -62,7 +62,7 @@ export const getProducts = async (req, res, next) => {
             if (Object.keys(queryObj.price).length === 0) delete queryObj.price;
         }
 
-        // 7. ðŸŒŸ Dynamic Specifications Filter
+       
         Object.keys(req.query).forEach(key => {
             if (key.startsWith('spec_')) {
                 const specName = key.replace('spec_', '');
@@ -75,20 +75,19 @@ export const getProducts = async (req, res, next) => {
             }
         });
 
-        // 6. à¸£à¸°à¸šà¸šà¹à¸šà¹ˆà¸‡à¸«à¸™à¹‰à¸² (Pagination)
+        
         const page = Math.max(1, parseInt(req.query.page, 10) || 1);
         const limit = Math.max(1, parseInt(req.query.limit, 10) || 12);
         const skip = (page - 1) * limit;
 
-        // 7. à¸£à¸°à¸šà¸šà¹€à¸£à¸µà¸¢à¸‡à¸¥à¸³à¸”à¸±à¸š (Sorting)
-        let sortBy = '-createdAt'; // à¸„à¹ˆà¸²à¹€à¸£à¸´à¹ˆà¸¡à¸•à¹‰à¸™: à¹ƒà¸«à¸¡à¹ˆà¸ªà¸¸à¸”à¹„à¸›à¹€à¸à¹ˆà¸²à¸ªà¸¸à¸”
+       
+        let sortBy = '-createdAt'; 
         if (req.query.sort === 'price_asc') sortBy = 'price';
         if (req.query.sort === 'price_desc') sortBy = '-price';
         if (req.query.sort === 'oldest') sortBy = 'createdAt';
         if (req.query.sort === 'best_seller') sortBy = '-soldCount';
 
-        // à¸„à¹‰à¸™à¸«à¸²à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸žà¸£à¹‰à¸­à¸¡à¹ƒà¸Šà¹‰à¸‡à¸²à¸™ Pagination à¹à¸¥à¸° Sorting   
-        // à¸™à¸³ .select('-specifications') à¸­à¸­à¸à¸•à¸²à¸¡à¹à¸œà¸™ à¹€à¸žà¸·à¹ˆà¸­à¹ƒà¸«à¹‰ Frontend à¸¡à¸µà¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸§à¸²à¸” UI
+        
         const products = await Product.find(queryObj)
             .sort(sortBy)
             .skip(skip)
@@ -115,7 +114,7 @@ export const getProducts = async (req, res, next) => {
 // @access  Public
 export const getProduct = async (req, res, next) => {
     try {
-        // ðŸŒŸ à¸­à¸±à¸›à¹€à¸”à¸•à¸¢à¸­à¸”à¸§à¸´à¸§ (viewCount) à¸—à¸¸à¸à¸„à¸£à¸±à¹‰à¸‡à¸—à¸µà¹ˆà¸¡à¸µà¸„à¸™à¸à¸”à¸”à¸¹à¸£à¸²à¸¢à¸¥à¸°à¹€à¸­à¸µà¸¢à¸”
+        
         const product = await Product.findByIdAndUpdate(
             req.params.id,
             { $inc: { viewCount: 1 } },

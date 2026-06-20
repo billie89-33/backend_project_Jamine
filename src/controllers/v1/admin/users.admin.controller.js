@@ -65,7 +65,21 @@ export const getUsers = async (req, res, next) => {
  */
 export const exportCustomers = async (req, res, next) => {
     try {
-        const customers = await User.find({ role: USER_ROLES.USER })
+        // เคารพ Filter ที่ส่งมาจาก Frontend (เหมือน getUsers)
+        let query = { role: USER_ROLES.USER };
+        if (req.query.keyword) {
+            const keywordRegex = new RegExp(req.query.keyword, 'i');
+            query.$or = [
+                { name: keywordRegex },
+                { username: keywordRegex },
+                { email: keywordRegex }
+            ];
+        }
+        if (req.query.status && req.query.status !== 'all') {
+            query.status = req.query.status;
+        }
+
+        const customers = await User.find(query)
             .select('name username email phone status createdAt')
             .sort({ createdAt: -1 })
             .lean();
@@ -151,8 +165,9 @@ export const updateUserByAdmin = async (req, res, next) => {
             return next(error);
         }
 
-        const customer = await User.findByIdAndUpdate(
-            req.params.id,
+        // 🛡️ ป้องกันการแก้ไขข้อมูลของ Admin กันเอง
+        const customer = await User.findOneAndUpdate(
+            { _id: req.params.id, role: USER_ROLES.USER },
             { $set: updates },
             { new: true, runValidators: true, context: 'query' }
         ).select('name username email phone status');
@@ -192,8 +207,9 @@ export const updateCustomerStatus = async (req, res, next) => {
             return next(error);
         }
 
-        const customer = await User.findByIdAndUpdate(
-            req.params.id,
+        // 🛡️ ป้องกันการ Ban Admin กันเอง
+        const customer = await User.findOneAndUpdate(
+            { _id: req.params.id, role: USER_ROLES.USER },
             { $set: { status: status } },
             { new: true, runValidators: true, context: 'query' }
         ).select('name username email status');
@@ -219,7 +235,8 @@ export const updateCustomerStatus = async (req, res, next) => {
  */
 export const deleteUser = async (req, res, next) => {
     try {
-        const user = await User.findByIdAndDelete(req.params.id);
+        // 🛡️ ป้องกันการลบ Admin
+        const user = await User.findOneAndDelete({ _id: req.params.id, role: USER_ROLES.USER });
 
         if (!user) {
             const error = new Error('User not found');
