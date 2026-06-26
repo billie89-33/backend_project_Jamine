@@ -1,0 +1,3 @@
+### @name GetAdminCategoryCovers
+GET {{baseUrl}}/api/v1/admin/category-covers
+Authorization: Bearer {{token}}

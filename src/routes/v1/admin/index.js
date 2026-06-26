@@ -8,6 +8,7 @@ import newsAdminRoutes from './news.admin.routes.js';
 import newsCategoryAdminRoutes from './newsCategory.admin.routes.js';
 import dashboardAdminRoutes from './dashboard.admin.routes.js';
 import shippingAdminRoutes from './shipping.admin.routes.js';
+import categoryMetasAdminRoutes from './categoryMetas.admin.routes.js';
 
 const router = express.Router();
 
@@ -23,5 +24,6 @@ router.use('/news', newsAdminRoutes);
 router.use('/news-categories', newsCategoryAdminRoutes);
 router.use('/dashboard', dashboardAdminRoutes);
 router.use('/shipping', shippingAdminRoutes);
+router.use('/category-covers', categoryMetasAdminRoutes);
 
 export default router;

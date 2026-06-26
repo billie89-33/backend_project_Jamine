@@ -13,7 +13,7 @@ const orderItemSchema = new mongoose.Schema({
     image: String,      // Snapshot: URL รูปภาพ ณ วันที่ซื้อ
     quantity: { 
         type: Number, 
-        required: true, 
+        required: true,  
         min: [1, 'Quantity can not be less then 1'] 
     },
     priceAtPurchase: { 
