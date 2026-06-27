@@ -26,11 +26,10 @@ export const upsertCategoryCover = async (req, res, next) => {
 
         // Check if category meta already exists
         let categoryMeta = await CategoryMeta.findOne({ categoryName });
+        let oldPublicId = null;
 
         if (categoryMeta) {
-            // Remove old image from Cloudinary
-            await cloudinary.uploader.destroy(categoryMeta.image.publicId);
-
+            oldPublicId = categoryMeta.image?.publicId;
             categoryMeta.image = {
                 url: req.file.path,
                 publicId: req.file.filename
@@ -46,9 +45,20 @@ export const upsertCategoryCover = async (req, res, next) => {
             });
         }
 
+        // Remove old image from Cloudinary ONLY after successful database save
+        if (oldPublicId) {
+            try {
+                await cloudinary.uploader.destroy(oldPublicId);
+            } catch (cloudErr) {
+                console.error("Cloudinary Delete Error:", cloudErr);
+            }
+        }
+
         res.status(200).json({ success: true, data: categoryMeta });
     } catch (error) {
-        if (req.file) await cloudinary.uploader.destroy(req.file.filename);
+        if (req.file) {
+            try { await cloudinary.uploader.destroy(req.file.filename); } catch (e) {}
+        }
         next(error);
     }
 };

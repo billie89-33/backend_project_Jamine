@@ -80,10 +80,10 @@ export const updateNews = async (req, res, next) => {
         }
 
         // 1. Image Update Logic
+        let oldPublicId = null;
         if (req.file) {
-            // Delete old image if exists
             if (news.image && news.image.publicId) {
-                await cloudinary.uploader.destroy(news.image.publicId);
+                oldPublicId = news.image.publicId;
             }
             updateData.image = {
                 url: req.file.path,
@@ -111,10 +111,21 @@ export const updateNews = async (req, res, next) => {
             { new: true, runValidators: true, context: 'query' }
         ).populate('category', 'name slug');
 
+        // Remove old image from Cloudinary ONLY after successful database update
+        if (oldPublicId) {
+            try {
+                await cloudinary.uploader.destroy(oldPublicId);
+            } catch (cloudErr) {
+                console.error("Cloudinary Delete Error:", cloudErr);
+            }
+        }
+
         res.status(200).json({ success: true, data: updatedNews });
     } catch (error) {
         // Cleanup newly uploaded file on error
-        if (req.file) await cloudinary.uploader.destroy(req.file.filename);
+        if (req.file) {
+            try { await cloudinary.uploader.destroy(req.file.filename); } catch (e) {}
+        }
         next(error);
     }
 };

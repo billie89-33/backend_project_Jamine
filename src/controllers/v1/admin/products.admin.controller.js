@@ -170,11 +170,10 @@ export const updateProduct = async (req, res, next) => {
         const normalizedBody = normalizeProductData({ ...req.body });
 
         // 1. Image Update (ถ้ามีไฟล์ใหม่มา)
+        let oldPublicId = null;
         if (req.file) {
             if (existingProduct.image?.publicId) {
-                try {
-                    await cloudinary.uploader.destroy(existingProduct.image.publicId);
-                } catch (e) { console.error("Cloudinary Delete Error:", e); }
+                oldPublicId = existingProduct.image.publicId;
             }
             updateData.image = { url: req.file.path, publicId: req.file.filename };
         }
@@ -236,6 +235,15 @@ export const updateProduct = async (req, res, next) => {
                 context: 'query' // 🔥 สำคัญ: บอก Mongoose ว่านี่คือ Query Validation ไม่ใช่การสร้างใหม่
             }
         );
+
+        // 🛡️ Remove old image from Cloudinary ONLY after successful database update
+        if (oldPublicId) {
+            try {
+                await cloudinary.uploader.destroy(oldPublicId);
+            } catch (cloudErr) {
+                console.error("Cloudinary Delete Error:", cloudErr);
+            }
+        }
 
         res.status(200).json({ success: true, data: product });
     } catch (error) {
