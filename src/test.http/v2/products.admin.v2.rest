@@ -1,0 +1,42 @@
+@baseUrl = http://127.0.0.1:4001/api/v2
+@contentType = application/json
+
+### 1. Get Admin Products (Requires Admin Login Cookie)
+GET {{baseUrl}}/admin/products
+
+### 2. Create Product (Requires multipart/form-data with an image, normally done via Frontend)
+# Note: Testing file uploads in .rest files is complex. 
+# It's better to test creation through the Frontend or Postman.
+# But you can test validation errors without a file:
+POST {{baseUrl}}/admin/products
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="brand"
+
+Apple
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="modelName"
+
+iPhone 15 Pro
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="description"
+
+A cool phone
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="price"
+
+40000
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="sku"
+
+IP15PRO-01
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="category"
+
+Smartphones
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="stock"
+
+50
+------WebKitFormBoundary7MA4YWxkTrZu0gW--

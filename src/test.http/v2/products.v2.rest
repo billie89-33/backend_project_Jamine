@@ -1,0 +1,23 @@
+@baseUrl = http://127.0.0.1:4001/api/v2
+@contentType = application/json
+
+### 1. Get all products (V2)
+GET {{baseUrl}}/products
+
+### 2. Get Products by Category and Sort
+GET {{baseUrl}}/products?category=Smartphones&sort=price_desc
+
+### 3. Get Products by Keyword and Filter
+GET {{baseUrl}}/products?keyword=Pro&inStock=true
+
+### 4. Get Categories
+GET {{baseUrl}}/products/categories
+
+### 5. Get Brands
+GET {{baseUrl}}/products/brands
+
+### 6. Get Spec Keys for a category
+GET {{baseUrl}}/products/spec-keys?category=Smartphones
+
+### 7. Get Spec Filters for a category
+GET {{baseUrl}}/products/spec-filters?category=Smartphones
