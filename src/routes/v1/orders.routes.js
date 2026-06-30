@@ -3,7 +3,8 @@ import {
     createOrder, 
     getMyOrders,
     getOrderById, 
-    mockPayment 
+    mockPayment,
+    cancelOrder
 } from '../../controllers/v1/orders.controller.js';
 import { protect } from '../../middlewares/auth.middleware.js';
 import { orderLimiter } from '../../middlewares/rateLimit.middleware.js';
@@ -17,5 +18,6 @@ router.post('/', orderLimiter, createOrder);
 router.get('/me', getMyOrders);
 router.get('/:orderId', getOrderById);
 router.post('/:orderId/mock-payment', orderLimiter, mockPayment);
+router.post('/:orderId/cancel', cancelOrder);
 
 export default router;

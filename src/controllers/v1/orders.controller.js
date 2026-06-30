@@ -381,3 +381,53 @@ export const mockPayment = async (req, res, next) => {
         next(error);
     }
 };
+
+// @desc    Cancel a pending order (Manual User Cancellation)
+// @route   POST /api/v1/orders/:orderId/cancel
+// @access  Private
+export const cancelOrder = async (req, res, next) => {
+    try {
+        await checkAndExpireOrders();
+
+        const orderId = req.params.orderId;
+        const userId = req.user._id;
+
+        const order = await Order.findOne({ _id: orderId, userId, status: ORDER_STATUS.PENDING });
+
+        if (!order) {
+            const existingOrder = await Order.findOne({ _id: orderId, userId }).lean();
+            if (!existingOrder) {
+                return res.status(404).json({ success: false, message: 'ไม่พบรายการคำสั่งซื้อนี้' });
+            }
+            if (existingOrder.status === ORDER_STATUS.CANCELLED) {
+                return res.status(400).json({ success: false, message: 'คำสั่งซื้อนี้ถูกยกเลิกไปแล้ว' });
+            }
+            return res.status(400).json({ success: false, message: `ไม่สามารถยกเลิกได้ เนื่องจากสถานะปัจจุบันคือ ${existingOrder.status}` });
+        }
+
+        order.status = ORDER_STATUS.CANCELLED;
+        await order.save();
+
+        if (order.items && order.items.length > 0) {
+            const bulkRestockOps = order.items.map(item => ({
+                updateOne: {
+                    filter: { _id: item.productId },
+                    update: { $inc: { stock: item.quantity } }
+                }
+            }));
+            await Product.bulkWrite(bulkRestockOps);
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'ยกเลิกคำสั่งซื้อเรียบร้อยแล้วและคืนสต็อกสินค้า',
+            data: {
+                ...order.toObject(),
+                totalAmount: order.total,
+                discount: order.discount || 0
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
