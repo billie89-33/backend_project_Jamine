@@ -1,0 +1,46 @@
+@baseUrl = http://127.0.0.1:4001/api/v2
+@contentType = application/json
+
+### 1. Register a new user (V2 - PostgreSQL)
+# @name registerUserV2
+POST {{baseUrl}}/users/register
+Content-Type: {{contentType}}
+
+{
+    "username": "tester_v2",
+    "email": "testv2@example.com",
+    "password": "password123",
+    "confirmPassword": "password123"
+}
+
+### 2. Register an Admin (V2)
+# @name registerAdminV2
+POST {{baseUrl}}/users/register
+Content-Type: {{contentType}}
+
+{
+    "username": "admin_v2",
+    "email": "adminv2@example.com",
+    "password": "password123",
+    "confirmPassword": "password123",
+    "role": "admin"
+}
+
+### 3. Login (V2 - PostgreSQL)
+# @name loginUserV2
+POST {{baseUrl}}/users/login
+Content-Type: {{contentType}}
+
+{
+    "email": "adminv2@example.com",
+    "password": "password123"
+}
+
+### 4. Get Current User Profile (V2)
+# @name getMeV2
+GET {{baseUrl}}/users/me
+# Cookie is sent automatically if set by the Login request in REST Client / httpyac
+
+### 5. Logout (V2)
+# @name logoutV2
+POST {{baseUrl}}/users/logout
