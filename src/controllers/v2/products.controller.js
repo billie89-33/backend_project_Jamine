@@ -259,7 +259,7 @@ export const getSpecFilters = async (req, res, next) => {
         const filters = result.reduce((acc, curr) => {
             acc[curr.key] = curr.values.sort();
             return acc;
-        }, {});
+        }, {}); 
 
         res.status(200).json({
             success: true,

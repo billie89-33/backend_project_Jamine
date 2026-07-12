@@ -1,0 +1,34 @@
+model User {
+  id             String   @id @default(uuid())
+  username       String   @unique
+  name           String?
+  phone          String?
+  avatarPublicId String?
+  avatarUrl      String?
+  role           String   @default("user")
+  status         String   @default("active")
+  email          String   @unique
+  password       String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  addresses      UserAddress[]
+  orders         Order[]
+  cart           Cart?
+}
+
+model UserAddress {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName    String
+  phone       String
+  address     String
+  subDistrict String
+  district    String
+  province    String
+  postalCode  String
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

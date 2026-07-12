@@ -1,0 +1,25 @@
+model NewsCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  news News[]
+}
+
+model News {
+  id            String       @id @default(uuid())
+  title         String
+  content       String
+  categoryId    String
+  category      NewsCategory @relation(fields: [categoryId], references: [id])
+  imagePublicId String?
+  imageUrl      String
+  author        String       @default("Admin")
+  isPublished   Boolean      @default(true)
+  views         Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}

@@ -75,9 +75,9 @@ export const registerUser = async (req, res, next) => {
                 username,
                 email,
                 password: hashedPassword,
-                role: role || USER_ROLES.USER,
-                addresses: []
-            }
+                role: role || USER_ROLES.USER
+            },
+            include: { addresses: true }
         });
 
         generateToken(res, user.id);
@@ -163,7 +163,8 @@ export const logoutUser = (req, res) => {
 export const getMe = async (req, res, next) => {
     try {
         const user = await prisma.user.findUnique({
-            where: { id: req.user.id || req.user._id } // Handle if auth middleware gives _id or id
+            where: { id: req.user.id || req.user._id }, // Handle if auth middleware gives _id or id
+            include: { addresses: true }
         });
 
         if (!user) {
@@ -188,7 +189,8 @@ export const getMe = async (req, res, next) => {
 export const getUser = async (req, res, next) => {
     try {
         const user = await prisma.user.findUnique({
-            where: { id: req.params.id }
+            where: { id: req.params.id },
+            include: { addresses: true }
         });
 
         if (!user) {
@@ -270,25 +272,22 @@ export const updateUser = async (req, res, next) => {
 export const addAddress = async (req, res, next) => {
     try {
         const userId = req.user.id || req.user._id;
-        const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-        let addresses = user.addresses ? (Array.isArray(user.addresses) ? user.addresses : []) : [];
-        const newAddress = {
-            _id: crypto.randomUUID(), // Mock _id so frontend doesn't break
-            ...req.body
-        };
-
-        if (newAddress.isDefault) {
-            addresses = addresses.map(addr => ({ ...addr, isDefault: false }));
+        if (req.body.isDefault) {
+            await prisma.userAddress.updateMany({
+                where: { userId },
+                data: { isDefault: false }
+            });
         }
 
-        addresses.push(newAddress);
-
-        await prisma.user.update({
-            where: { id: userId },
-            data: { addresses }
+        await prisma.userAddress.create({
+            data: {
+                userId,
+                ...req.body
+            }
         });
+
+        const addresses = await prisma.userAddress.findMany({ where: { userId } });
 
         res.status(200).json({
             success: true,
@@ -306,31 +305,26 @@ export const addAddress = async (req, res, next) => {
 export const updateAddress = async (req, res, next) => {
     try {
         const userId = req.user.id || req.user._id;
-        const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+        const addressId = req.params.addressId;
 
-        let addresses = user.addresses ? (Array.isArray(user.addresses) ? user.addresses : []) : [];
-        const addressIndex = addresses.findIndex(addr => addr._id === req.params.addressId);
-        
-        if (addressIndex === -1) {
+        const address = await prisma.userAddress.findUnique({ where: { id: addressId } });
+        if (!address || address.userId !== userId) {
             return res.status(404).json({ success: false, message: 'Address not found' });
         }
 
-        // If setting as default, remove default from others
         if (req.body.isDefault) {
-            addresses = addresses.map(addr => ({ ...addr, isDefault: false }));
+            await prisma.userAddress.updateMany({
+                where: { userId, id: { not: addressId } },
+                data: { isDefault: false }
+            });
         }
 
-        // Update fields
-        addresses[addressIndex] = {
-            ...addresses[addressIndex],
-            ...req.body
-        };
-
-        await prisma.user.update({
-            where: { id: userId },
-            data: { addresses }
+        await prisma.userAddress.update({
+            where: { id: addressId },
+            data: req.body
         });
+
+        const addresses = await prisma.userAddress.findMany({ where: { userId } });
 
         res.status(200).json({
             success: true,
@@ -348,25 +342,25 @@ export const updateAddress = async (req, res, next) => {
 export const setDefaultAddress = async (req, res, next) => {
     try {
         const userId = req.user.id || req.user._id;
-        const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+        const addressId = req.params.addressId;
 
-        let addresses = user.addresses ? (Array.isArray(user.addresses) ? user.addresses : []) : [];
-        const addressExists = addresses.some(addr => addr._id === req.params.addressId);
-
-        if (!addressExists) {
+        const address = await prisma.userAddress.findUnique({ where: { id: addressId } });
+        if (!address || address.userId !== userId) {
             return res.status(404).json({ success: false, message: 'Address not found' });
         }
 
-        addresses = addresses.map(addr => ({
-            ...addr,
-            isDefault: addr._id === req.params.addressId
-        }));
+        await prisma.$transaction([
+            prisma.userAddress.updateMany({
+                where: { userId },
+                data: { isDefault: false }
+            }),
+            prisma.userAddress.update({
+                where: { id: addressId },
+                data: { isDefault: true }
+            })
+        ]);
 
-        await prisma.user.update({
-            where: { id: userId },
-            data: { addresses }
-        });
+        const addresses = await prisma.userAddress.findMany({ where: { userId } });
 
         res.status(200).json({
             success: true,
@@ -384,16 +378,16 @@ export const setDefaultAddress = async (req, res, next) => {
 export const deleteAddress = async (req, res, next) => {
     try {
         const userId = req.user.id || req.user._id;
-        const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+        const addressId = req.params.addressId;
 
-        let addresses = user.addresses ? (Array.isArray(user.addresses) ? user.addresses : []) : [];
-        addresses = addresses.filter(addr => addr._id !== req.params.addressId);
+        const address = await prisma.userAddress.findUnique({ where: { id: addressId } });
+        if (!address || address.userId !== userId) {
+            return res.status(404).json({ success: false, message: 'Address not found' });
+        }
 
-        await prisma.user.update({
-            where: { id: userId },
-            data: { addresses }
-        });
+        await prisma.userAddress.delete({ where: { id: addressId } });
+
+        const addresses = await prisma.userAddress.findMany({ where: { userId } });
 
         res.status(200).json({
             success: true,
